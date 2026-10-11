@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Manifold</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' fill='%230b0c0e'/%3E%3Crect x='4' y='4' width='12' height='12' fill='none' stroke='%23eceef1' stroke-width='1.6'/%3E%3Crect x='10' y='10' width='12' height='12' fill='none' stroke='%23eceef1' stroke-width='1.6' opacity='.55'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0b0c0e;
+    --line: rgba(255,255,255,.09);
+    --line2: rgba(255,255,255,.2);
+    --text: #eceef1;
+    --mute: #9aa1ac;
+    --dim: #666d79;
+    --font: "Archivo", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  html, body { max-width: 100%; overflow-x: clip; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 400 15px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+  .wide { font-stretch: 125%; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* top bar */
+  .top { border-bottom: 1px solid var(--line); }
+  .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-stretch: 125%; font-weight: 600; font-size: 17px; letter-spacing: .02em; }
+  .brand svg { display: block; }
+  .tools { display: flex; align-items: center; gap: 20px; color: var(--mute); font-size: 14px; }
+  .live { display: inline-flex; align-items: center; gap: 8px; }
+  .chip { background: none; border: 1px solid var(--line2); border-radius: 2px; padding: 7px 12px; cursor: pointer; font-stretch: 112%; font-weight: 500; letter-spacing: .08em; color: var(--text); }
+  .chip:hover { border-color: var(--text); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--text)); animation: pulse 2.4s ease-out infinite; }
+  .off .dot, .dot.off { background: transparent; box-shadow: inset 0 0 0 1px var(--dim); animation: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c, #fff) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+
+  /* requests */
+  .req { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .req p { margin: 0; font-size: 16px; }
+  .req .acts { display: flex; gap: 10px; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: clamp(32px, 6vw, 88px); padding: 56px 0 24px; align-items: center; }
+  h1.k { margin: 0 0 6px; font-size: 15px; font-weight: 500; color: var(--mute); }
+  .big { font-size: clamp(96px, 16vw, 208px); line-height: .88; font-weight: 200; font-stretch: 125%; letter-spacing: -.035em; margin: 0; }
+  .lede { margin: 18px 0 0; font-size: 18px; color: var(--text); max-width: 34ch; }
+  .ribbon { display: flex; gap: 3px; height: 10px; margin: 32px 0 14px; }
+  .seg { flex: var(--w) 1 0; min-width: 6px; background: var(--c); transform-origin: left; }
+  .enter .seg { animation: grow 1.1s cubic-bezier(.2,.7,.1,1) both; }
+  .seg.none { background: var(--line); }
+  @keyframes grow { from { transform: scaleX(0); } }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--mute); font-size: 14px; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { width: 8px; height: 8px; background: var(--c); display: inline-block; }
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 44px; border-top: 1px solid var(--line); }
+  .tot { padding: 20px 0 0 22px; border-left: 1px solid var(--line); }
+  .tot:first-child { padding-left: 0; border-left: 0; }
+  .tot b { display: block; font-size: clamp(30px, 3.5vw, 48px); font-weight: 250; font-stretch: 125%; letter-spacing: -.02em; line-height: 1.05; }
+  .tot b small { font-size: .38em; font-weight: 400; letter-spacing: 0; color: var(--mute); margin-left: 6px; font-stretch: 100%; }
+  .tot > span { color: var(--mute); font-size: 14px; }
+  .herocard { display: grid; justify-items: center; gap: 22px; }
+  .herocard .card { width: min(100%, 340px); }
+  .mycode { display: grid; gap: 6px; justify-items: center; color: var(--mute); font-size: 14px; }
+  .mycode button { background: none; border: 0; border-bottom: 1px solid var(--line2); padding: 2px 0 6px; cursor: pointer; font-size: 30px; font-weight: 300; font-stretch: 125%; letter-spacing: .14em; color: var(--text); }
+  .mycode button:hover { border-color: var(--text); }
+
+  /* section headings */
+  .sec { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin: 64px 0 22px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .sec h2 { margin: 0; font-size: 22px; font-weight: 500; font-stretch: 112%; }
+  .sec p { margin: 0; color: var(--mute); font-size: 14px; }
+
+  /* shelf */
+  .shelf { display: flex; gap: 22px; overflow-x: auto; scroll-snap-type: x proximity; padding: 6px 2px 30px; }
+  .slot { flex: none; width: 244px; scroll-snap-align: start; }
+  .rank { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .rank b { font-size: 30px; font-weight: 300; font-stretch: 125%; letter-spacing: -.02em; }
+  .rank span { font-size: 13px; color: var(--ink); background: var(--text); padding: 1px 7px; border-radius: 2px; font-weight: 600; }
+  .hint { color: var(--mute); margin: 0 0 8px; }
+
+  /* collector card */
+  .card {
+    --cut: 7%;
+    --c: #8d97a6; --foil: .15;
+    container-type: inline-size;
+    position: relative; aspect-ratio: 5 / 7; padding: 1.5px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--c) 95%, #fff), color-mix(in srgb, var(--c) 22%, #000) 38%, color-mix(in srgb, var(--c) 85%, #fff) 68%, color-mix(in srgb, var(--c) 28%, #000));
+    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% calc(var(--cut) * 5 / 7 * 1.4), 100% 100%, calc(var(--cut)) 100%, 0 calc(100% - var(--cut) * 5 / 7 * 1.4));
+    transition: transform .25s ease-out;
+    will-change: transform;
+  }
+  .card.off { filter: saturate(.35) brightness(.8); }
+  .face {
+    position: relative; height: 100%; overflow: hidden;
+    display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 2.4cqw;
+    padding: 6cqw 6.5cqw 5cqw;
+    background: linear-gradient(180deg, #15171b, #0b0c0f);
+    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% calc(var(--cut) * 5 / 7 * 1.4), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut) * 5 / 7 * 1.4));
+  }
+  .ch { display: flex; justify-content: space-between; align-items: flex-start; }
+  .tier { font-size: max(13px, 5.6cqw); font-weight: 600; font-stretch: 125%; color: var(--c); letter-spacing: .01em; }
+  .score { text-align: right; line-height: 1; }
+  .score .num { display: block; font-size: 15cqw; font-weight: 250; font-stretch: 125%; letter-spacing: -.03em; }
+  .score small { font-size: max(11px, 3.8cqw); color: var(--mute); }
+  .stage { position: relative; display: grid; place-items: center; min-height: 0; }
+  .stage::before { content: ""; position: absolute; height: 94%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--c) 30%, transparent), transparent 66%); }
+  .ring { position: absolute; border-radius: 50%; aspect-ratio: 1; width: auto; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
+  .r1 { height: 60%; }
+  .r2 { height: 88%; border-style: dashed; border-color: color-mix(in srgb, var(--c) 28%, transparent); }
+  .beast { position: relative; font-size: 27cqw; line-height: 1; filter: drop-shadow(0 10px 18px rgba(0,0,0,.65)); }
+  .ident { display: grid; gap: 1px; }
+  .nm { font-size: max(15px, 7cqw); font-weight: 600; font-stretch: 112%; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { font-size: max(11px, 4.2cqw); color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stats { margin: 0; display: grid; }
+  .stats div { display: flex; justify-content: space-between; gap: 12px; padding: 1.7cqw 0; border-top: 1px solid var(--line); font-size: max(12px, 4.7cqw); }
+  .stats dt { color: var(--mute); }
+  .stats dd { margin: 0; font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cf { display: flex; justify-content: space-between; gap: 8px; padding-top: 2.2cqw; border-top: 1px solid var(--line); font-size: max(11px, 4cqw); color: var(--mute); }
+  .cf .live { color: var(--text); }
+  .foil {
+    position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
+    opacity: calc(.28 + var(--foil) * var(--hov, 0));
+    background:
+      radial-gradient(55% 40% at var(--mx, 28%) var(--my, 18%), rgba(255,255,255,.95), transparent 70%),
+      linear-gradient(115deg, transparent calc(var(--sx, 35%) - 20%), color-mix(in srgb, var(--c) 65%, #fff) var(--sx, 35%), transparent calc(var(--sx, 35%) + 20%));
+    transition: opacity .3s;
+  }
+
+  /* add friend */
+  .connect { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: clamp(24px, 6vw, 80px); padding: 8px 0 96px; align-items: end; }
+  .connect h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; font-stretch: 112%; }
+  .connect p { margin: 0; color: var(--mute); max-width: 44ch; }
+  .connect form { display: flex; gap: 20px; align-items: flex-end; }
+  .connect input { flex: 1; min-width: 0; background: transparent; border: 0; border-bottom: 1px solid var(--line2); border-radius: 0; padding: 4px 0 10px; color: var(--text); font: 300 clamp(28px, 4vw, 44px)/1 var(--font); font-stretch: 125%; letter-spacing: .12em; text-transform: uppercase; }
+  .connect input::placeholder { color: var(--dim); }
+  .connect input:focus { outline: 0; border-color: var(--text); }
+  .btn { background: var(--text); color: var(--ink); border: 0; border-radius: 2px; padding: 13px 22px; font-weight: 600; font-stretch: 112%; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: #fff; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line2); }
+  .btn.ghost:hover { border-color: var(--text); }
+
+  /* onboarding */
+  .onboard { max-width: 640px; margin: 0 auto; padding: 14vh 0 80px; }
+  .onboard h1 { margin: 0 0 14px; font-size: clamp(30px, 5vw, 46px); font-weight: 300; font-stretch: 125%; line-height: 1.1; letter-spacing: -.02em; }
+  .onboard p { color: var(--mute); margin: 0 0 22px; max-width: 52ch; }
+  .onboard .warn { color: var(--text); border-left: 2px solid var(--text); padding-left: 14px; }
+  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line2); border-radius: 2px; padding: 14px 16px; margin-bottom: 22px; }
+  .cmd code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+
+  /* toast */
+  #toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--text); color: var(--ink); padding: 12px 18px; border-radius: 2px; font-weight: 500; opacity: 0; pointer-events: none; transition: .25s; max-width: calc(100vw - 32px); }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 36px; }
+    .connect { grid-template-columns: 1fr; align-items: start; }
+    .tools .live { display: none; }
+  }
+  @media (max-width: 480px) {
+    .totals { grid-template-columns: 1fr; }
+    .tot, .tot:first-child { border-left: 0; padding: 16px 0; border-bottom: 1px solid var(--line); }
+    .connect form { flex-direction: column; align-items: stretch; }
+    .connect input { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="14" height="14" stroke="#eceef1" stroke-width="1.5"/><rect x="9.5" y="9.5" width="14" height="14" stroke="#eceef1" stroke-width="1.5" opacity=".55"/></svg>
+      Manifold
+    </div>
+    <div class="tools" id="tools" hidden>
+      <span id="live"></span>
+      <button class="chip" id="mycode" title="Copy your pairing code"></button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="onboard" hidden></div>
+  <div id="deck" hidden>
+    <div id="req"></div>
+    <section class="hero" aria-labelledby="pow">
+      <div id="pool"></div>
+      <div class="herocard" id="mine"></div>
+    </section>
+
+    <div class="sec"><h2>Your crew</h2><p>Ranked by power</p></div>
+    <div id="shelf"></div>
+
+    <section class="connect" aria-labelledby="addh">
+      <div>
+        <h2 id="addh">Add a friend's machine</h2>
+        <p>Enter their pairing code. They get a request and choose whether to accept it.</p>
+      </div>
+      <form id="cf" autocomplete="off">
+        <input id="code-in" inputmode="text" maxlength="7" placeholder="K7X-92P" aria-label="Friend's pairing code" spellcheck="false">
+        <button class="btn" type="submit">Send request</button>
+      </form>
+    </section>
+  </div>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const TIERS = [
+  { min: 0,   name: "Hatchling", emoji: "\u{1F423}", color: "#8d97a6", foil: 0.15 },
+  { min: 40,  name: "Wolf",      emoji: "\u{1F43A}", color: "#d5dbe3", foil: 0.3 },
+  { min: 100, name: "Bull",      emoji: "\u{1F402}", color: "#d98b4a", foil: 0.45 },
+  { min: 180, name: "Tiger",     emoji: "\u{1F42F}", color: "#f2b84b", foil: 0.6 },
+  { min: 300, name: "Dragon",    emoji: "\u{1F409}", color: "#ff5a36", foil: 0.8 },
+];
+const tierOf = (s) => [...TIERS].reverse().find((t) => s >= t.min);
+
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+}
+const fmt = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+const vramOf = (p) => p.specs.gpus.reduce((a, g) => a + g.vram_gb, 0);
+const shortCpu = (s) => s.replace(/\((R|TM|r|tm)\)/g, "").replace(/\b(AMD|Intel|Processor|CPU)\b/g, "").replace(/w\/.*$/, "").replace(/@.*$/, "").replace(/\s+/g, " ").trim() || "CPU";
+const shortGpu = (s) => s.replace(/NVIDIA|GeForce|Laptop GPU|Laptop|\bGPU\b/g, "").replace(/\s+/g, " ").trim() || s;
+
+function num(value, dec = 0) {
+  const el = h("span", { class: "num" }, value.toFixed(dec));
+  el.dataset.to = value; el.dataset.dec = dec;
+  return el;
+}
+function animateNums(root) {
+  if (REDUCED) return;
+  root.querySelectorAll(".num[data-to]").forEach((el) => {
+    const to = parseFloat(el.dataset.to), dec = +el.dataset.dec || 0, t0 = performance.now(), d = 900;
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / d), e = 1 - Math.pow(1 - k, 4);
+      el.textContent = (to * e).toFixed(dec);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+function tilt(el) {
+  if (REDUCED) return;
+  el.addEventListener("pointermove", (e) => {
+    const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    el.style.setProperty("--mx", x * 100 + "%");
+    el.style.setProperty("--my", y * 100 + "%");
+    el.style.setProperty("--sx", x * 100 + "%");
+    el.style.setProperty("--hov", 1);
+    el.style.transform = `perspective(900px) rotateX(${((0.5 - y) * 8).toFixed(2)}deg) rotateY(${((x - 0.5) * 10).toFixed(2)}deg)`;
+  });
+  el.addEventListener("pointerleave", () => { el.style.setProperty("--hov", 0); el.style.transform = ""; });
+}
+
+function stat(label, value) { return h("div", {}, h("dt", {}, label), h("dd", {}, value)); }
+
+function card(p) {
+  const t = tierOf(p.score), vram = vramOf(p);
+  const gpu = p.specs.gpus.length ? `${shortGpu(p.specs.gpus[0].name)}, ${fmt(vram)} GB` : "None";
+  const el = h("article", { class: "card" + (p.online ? "" : " off"), style: `--c:${t.color};--foil:${t.foil}`, "aria-label": `${p.name}, ${t.name}, power ${p.score}` },
+    h("div", { class: "face" },
+      h("header", { class: "ch" }, h("span", { class: "tier" }, t.name), h("span", { class: "score" }, num(p.score), h("small", {}, "power"))),
+      h("div", { class: "stage" }, h("i", { class: "ring r1" }), h("i", { class: "ring r2" }), h("span", { class: "beast", "aria-hidden": "true" }, t.emoji)),
+      h("div", { class: "ident" }, h("strong", { class: "nm" }, p.name), h("span", { class: "sub" }, shortCpu(p.specs.cpu))),
+      h("dl", { class: "stats" }, stat("CPU", `${p.specs.cores} cores`), stat("Memory", `${fmt(p.specs.ram_gb)} GB`), stat("GPU", gpu)),
+      h("footer", { class: "cf" },
+        h("span", { class: "live" }, h("i", { class: "dot" + (p.online ? "" : " off") }), p.online ? "Online" : "Offline"),
+        h("span", {}, p.sharing ? `Sharing ${p.share_cores} cores` : "Not sharing")),
+      h("div", { class: "foil" })));
+  tilt(el);
+  return el;
+}
+
+/* ------------ state + rendering ------------ */
+let secret = null, firstPaint = true;
+try {
+  const m = location.hash.match(/key=([\w-]+)/);
+  if (m) { localStorage.setItem("manifold_secret", m[1]); history.replaceState(null, "", location.pathname); }
+  secret = localStorage.getItem("manifold_secret");
+} catch (e) {}
+
+const cache = {};
+function region(sel, data, build) {
+  const j = JSON.stringify(data);
+  if (cache[sel] === j) return;
+  cache[sel] = j;
+  const node = build();
+  $(sel).replaceChildren(node);
+  animateNums($(sel));
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 3600);
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast("Copied."); }
+  catch (e) { toast("Couldn't copy. Select the text and copy it yourself."); }
+}
+async function call(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return { ok: r.ok, status: r.status, data: await r.json() };
+}
+
+function showOnboard(unknown) {
+  $("#deck").hidden = true; $("#tools").hidden = true; $("#onboard").hidden = false;
+  const cmd = `python3 agent.py --hub ${location.origin} --name "My laptop"`;
+  $("#onboard").replaceChildren(h("div", { class: "onboard" },
+    h("h1", {}, "Link this browser to your laptop"),
+    unknown ? h("p", { class: "warn" }, "This hub doesn't recognize your machine. Start the agent again to get a new link.") : null,
+    h("p", {}, "Run this command on your laptop. It registers the machine and prints a private link."),
+    h("div", { class: "cmd" }, h("code", {}, cmd), h("button", { class: "btn ghost", onclick: () => copy(cmd) }, "Copy")),
+    h("p", {}, "Open the link it prints. Anyone with that link can act as your machine, so keep it to yourself.")));
+}
+
+function render(data) {
+  $("#onboard").hidden = true; $("#deck").hidden = false; $("#tools").hidden = false;
+  const all = [data.me, ...data.friends].sort((a, b) => b.score - a.score);
+  const online = all.filter((p) => p.online);
+  const total = online.reduce((a, p) => a + p.score, 0);
+  const cores = online.reduce((a, p) => a + p.specs.cores, 0);
+  const ram = online.reduce((a, p) => a + p.specs.ram_gb, 0);
+  const vram = online.reduce((a, p) => a + vramOf(p), 0);
+
+  region("#live", { n: online.length, c: tierOf(data.me.score).color }, () =>
+    h("span", { class: "live", style: `--c:${tierOf(data.me.score).color}` }, h("i", { class: "dot" }), `${online.length} online`));
+  $("#mycode").textContent = data.me.code;
+  $("#mycode").onclick = () => copy(data.me.code);
+
+  region("#req", data.incoming, () => h("div", {}, data.incoming.map((r) =>
+    h("div", { class: "req" },
+      h("p", {}, `${r.name} (${r.code}) wants to join your crew.`),
+      h("div", { class: "acts" },
+        h("button", { class: "btn", onclick: async () => { await call("/api/respond", { secret, code: r.code, accept: true }); toast(`${r.name} joined your crew.`); load(); } }, "Accept"),
+        h("button", { class: "btn ghost", onclick: async () => { await call("/api/respond", { secret, code: r.code, accept: false }); toast("Request declined."); load(); } }, "Decline"))))));
+
+  region("#pool", { all: online.map((p) => [p.name, p.score]), cores, ram, vram }, () => {
+    const wrap = h("div", { class: firstPaint ? "enter" : "" });
+    wrap.append(
+      h("h1", { class: "k", id: "pow" }, "Combined power"),
+      h("p", { class: "big" }, num(total)),
+      h("p", { class: "lede" }, online.length === 0 ? "Nothing is online right now." :
+        online.length === 1 ? "1 machine online. Add a friend to combine power." : `${online.length} machines online, working as one.`),
+      h("div", { class: "ribbon", "aria-hidden": "true" }, online.length ? online.map((p) => h("i", { class: "seg", style: `--w:${p.score};--c:${tierOf(p.score).color}`, title: `${p.name}: ${p.score}` })) : h("i", { class: "seg none", style: "--w:1" })),
+      h("div", { class: "legend" }, online.map((p) => h("span", { style: `--c:${tierOf(p.score).color}` }, h("i"), `${p.name} ${p.score}`))),
+      h("div", { class: "totals" },
+        h("div", { class: "tot" }, h("b", {}, num(cores)), h("span", {}, "CPU cores")),
+        h("div", { class: "tot" }, h("b", {}, num(ram, 1), h("small", {}, "GB")), h("span", {}, "Memory")),
+        h("div", { class: "tot" }, h("b", {}, num(vram, 1), h("small", {}, "GB")), h("span", {}, "Graphics memory"))));
+    return wrap;
+  });
+
+  region("#mine", data.me, () => h("div", { style: "display:contents" },
+    card(data.me),
+    h("div", { class: "mycode" }, h("span", {}, "Your pairing code"), h("button", { onclick: () => copy(data.me.code), "aria-label": "Copy pairing code" }, data.me.code))));
+
+  region("#shelf", all, () => {
+    const box = h("div", {});
+    box.append(h("div", { class: "shelf" }, all.map((p, i) =>
+      h("div", { class: "slot" }, h("div", { class: "rank" }, h("b", {}, `#${i + 1}`), p.code === data.me.code ? h("span", {}, "You") : null), card(p)))));
+    if (!data.friends.length) box.append(h("p", { class: "hint" }, `No friends yet. Share your pairing code ${data.me.code} or enter theirs below.`));
+    return box;
+  });
+  firstPaint = false;
+}
+
+async function load() {
+  if (!secret) return showOnboard(false);
+  try {
+    const { ok, status, data } = await call("/api/crew", { secret });
+    if (!ok) {
+      if (status === 401) { try { localStorage.removeItem("manifold_secret"); } catch (e) {} secret = null; return showOnboard(true); }
+      return;
+    }
+    render(data);
+  } catch (e) { /* hub unreachable: keep what's on screen */ }
+}
+
+const input = $("#code-in");
+input.addEventListener("input", () => {
+  const v = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  input.value = v.length > 3 ? v.slice(0, 3) + "-" + v.slice(3) : v;
+});
+$("#cf").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = input.value.trim();
+  if (code.length < 7) return toast("Pairing codes look like K7X-92P.");
+  try {
+    const { data } = await call("/api/connect", { secret, code });
+    const s = data.error ? data.error : data.status || "";
+    toast(data.error ? s.charAt(0).toUpperCase() + s.slice(1) + "." :
+      s.includes("request sent") ? "Request sent. They need to accept it." :
+      s.includes("already") ? "Already in your crew." : "Connected.");
+    if (!data.error) input.value = "";
+    load();
+  } catch (err) { toast("Couldn't reach the hub. Try again."); }
+});
+
+load();
+setInterval(() => { if (!document.hidden) load(); }, 5000);
+</script>
+</body>
+</html>

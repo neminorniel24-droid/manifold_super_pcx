@@ -2,3 +2,5 @@ workers.json
 __pycache__/
 *.pyc
 .env
+hub_data.json
+agent_state.json

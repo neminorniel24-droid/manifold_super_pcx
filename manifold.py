@@ -85,14 +85,15 @@ def _count_chunk(r):
     return sum(1 for n in range(lo, hi) if _is_prime(n))
 
 
-def count_primes(lo, hi):
-    """Count primes in [lo, hi) using every core on this machine."""
+def count_primes(lo, hi, procs=None):
+    """Count primes in [lo, hi) using `procs` cores (default: all)."""
+    procs = max(1, min(procs or cpu_count(), cpu_count()))
     t = time.time()
     step = 20000
     chunks = [(a, min(a + step, hi)) for a in range(lo, hi, step)]
-    with Pool(cpu_count()) as p:
+    with Pool(procs) as p:
         total = sum(p.map(_count_chunk, chunks))
-    return {"count": total, "seconds": round(time.time() - t, 2), "cores": cpu_count()}
+    return {"count": total, "seconds": round(time.time() - t, 2), "cores": procs}
 
 
 # ---------------------------------------------------------------- worker

@@ -50,3 +50,34 @@ Three 6 GB GPUs = 18 GB of VRAM for models, but the network is slower than one b
 - [ ] Auto-discovery so you don't edit `workers.json`
 - [ ] Live dashboard
 - [ ] Ray / llama.cpp RPC auto-launch
+
+## v0.2: Crew website (profile cards + pairing codes)
+
+Each laptop shows up as a card with a creature based on its power score
+(CPU cores x3 + RAM GB x3 + GPU VRAM GB x20): Hatchling, Wolf, Bull, Tiger, Dragon.
+Laptops connect OUT to the hub, so it works on any network, including mobile data.
+
+1. Run the hub somewhere everyone can reach (your PC for testing, a cheap VPS later):
+   `python3 hub.py --port 8080`
+2. On each laptop: `python3 agent.py --hub http://HUB_ADDRESS:8080 --name "My laptop"`
+   It prints your pairing code and a private link. Open the link to see your card.
+3. Type a friend's code on the website. They get a request and must accept.
+
+Only CPU model, cores, RAM and GPU name/VRAM are shared. Never share the private link.
+
+## v0.3: Send work to friends' laptops
+
+Sharing is opt-in. A laptop only runs work if its owner starts the agent with `--allow-jobs`.
+Only connected friends can send jobs, only built-in tasks run (never arbitrary code),
+and the owner caps how many cores friends can use.
+
+```bash
+# on each machine that wants to share power
+python3 agent.py --hub http://HUB:8080 --name "My laptop" --allow-jobs --max-cores 4
+
+# on the machine that wants the combined power
+python3 crew_run.py --hub http://HUB:8080 --n 5000000
+```
+
+`crew_run.py` splits the job across you and your online, sharing friends. If a machine drops
+mid-job, its pieces are re-sent to someone else.
