@@ -11,10 +11,12 @@ import argparse
 import hmac
 import json
 import os
+import re
 import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(HERE, "hub_data.json")
@@ -25,6 +27,16 @@ DB = {"machines": {}}  # code -> machine
 JOBS = {}  # job id -> job (memory only)
 ALLOWED_TASKS = {"count_primes"}  # built-in tasks only, never arbitrary code
 MAX_RANGE = 50_000_000
+PUBLIC_URL = ""
+INVITES = {}  # token -> {"owner": code, "exp": ts}
+INVITE_TTL = 48 * 3600
+DL_FILES = {"manifold.py", "agent.py"}
+TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
+HOST_RE = re.compile(r"^[A-Za-z0-9.-]+(:[0-9]{1,5})?$")
+
+INSTALL_SH = '#!/usr/bin/env bash\n# Manifold installer. Saves two files to ~/manifold and starts sharing.\nset -e\nHUB="__HUB__"\nif ! command -v python3 >/dev/null 2>&1; then\n  echo "Python 3 is needed first:  sudo apt install -y python3"\n  exit 1\nfi\nmkdir -p "$HOME/manifold" && cd "$HOME/manifold"\ncurl -fsSL -H "ngrok-skip-browser-warning: 1" "$HUB/dl/manifold.py" -o manifold.py\ncurl -fsSL -H "ngrok-skip-browser-warning: 1" "$HUB/dl/agent.py" -o agent.py\necho "Starting Manifold. Keep this window open. Press Ctrl+C to stop sharing."\nexec python3 agent.py --hub "$HUB" __INVITE__--allow-jobs --name "$(hostname)"\n'
+
+INSTALL_PS1 = '$ErrorActionPreference = "Stop"\n$hub = "__HUB__"\nif (-not (Get-Command python -ErrorAction SilentlyContinue)) {\n  Write-Host "Python 3 is needed first. Install it with:  winget install Python.Python.3.12"\n  Write-Host "Then open a new PowerShell window and run this command again."\n  exit 1\n}\n$dir = Join-Path $env:USERPROFILE "manifold"\nNew-Item -ItemType Directory -Force -Path $dir | Out-Null\n$h = @{ "ngrok-skip-browser-warning" = "1" }\nInvoke-WebRequest -UseBasicParsing -Headers $h -Uri "$hub/dl/manifold.py" -OutFile (Join-Path $dir "manifold.py")\nInvoke-WebRequest -UseBasicParsing -Headers $h -Uri "$hub/dl/agent.py" -OutFile (Join-Path $dir "agent.py")\nSet-Location $dir\nWrite-Host "Starting Manifold. Keep this window open. Press Ctrl+C to stop sharing."\npython agent.py --hub $hub __INVITE__--allow-jobs --name $env:COMPUTERNAME\n'
 
 TIERS = [  # (min score, creature, emoji, title)
     (300, "dragon", "\U0001F409", "Dragon"),
@@ -116,7 +128,8 @@ def crew_view(me):
             pool["vram_gb"] += sum(g["vram_gb"] for g in p["specs"]["gpus"])
     pool = {k: round(v, 1) for k, v in pool.items()}
     incoming = [{"code": c, "name": ms[c]["name"]} for c in me["pending"] if c in ms]
-    return {"me": public(me), "friends": friends, "incoming": incoming, "pool": pool}
+    return {"me": public(me), "friends": friends, "incoming": incoming, "pool": pool,
+            "public_url": PUBLIC_URL}
 
 
 def api(path, b):
@@ -128,8 +141,18 @@ def api(path, b):
                  "specs": clean_specs(b.get("specs")), "last_seen": time.time(),
                  "friends": [], "pending": []}
             DB["machines"][code] = m
+            joined = None
+            tok = str(b.get("invite", ""))
+            inv = INVITES.get(tok)
+            if inv and inv["exp"] > time.time():
+                owner = DB["machines"].get(inv["owner"])
+                if owner:
+                    owner["friends"].append(code)
+                    m["friends"].append(owner["code"])
+                    joined = owner["name"]
+                del INVITES[tok]
             save()
-            return 200, {"code": code, "secret": m["secret"]}
+            return 200, {"code": code, "secret": m["secret"], "joined": joined}
 
         me = by_secret(b.get("secret", ""))
         if not me:
@@ -174,6 +197,15 @@ def api(path, b):
                 DB["machines"][code]["friends"].append(me["code"])
             save()
             return 200, {"ok": True}
+        if path == "/api/invite":
+            now = time.time()
+            for k in [k for k, v in INVITES.items() if v["exp"] < now]:
+                del INVITES[k]
+            if sum(1 for v in INVITES.values() if v["owner"] == me["code"]) >= 10:
+                return 429, {"error": "too many open invites; use one or wait for them to expire"}
+            tok = secrets.token_urlsafe(9)
+            INVITES[tok] = {"owner": me["code"], "exp": now + INVITE_TTL}
+            return 200, {"token": tok, "public_url": PUBLIC_URL}
         if path == "/api/job/submit":
             target = DB["machines"].get(str(b.get("to", "")).strip().upper())
             if not target or (target is not me and target["code"] not in me["friends"]):
@@ -256,10 +288,51 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _file(self, name, folder="web"):
+        try:
+            with open(os.path.join(HERE, folder, name) if folder else os.path.join(HERE, name), "rb") as f:
+                data = f.read()
+        except OSError:
+            return self._send(404, {"error": "not found"})
+        ctype = "text/html; charset=utf-8" if name.endswith(".html") else "text/plain; charset=utf-8"
+        self._send(200, data, ctype)
+
+    def _base(self):
+        if PUBLIC_URL:
+            return PUBLIC_URL
+        host = self.headers.get("Host", "")
+        if not HOST_RE.match(host):
+            return None
+        proto = self.headers.get("X-Forwarded-Proto", "http")
+        return f"{proto if proto in ('http', 'https') else 'http'}://{host}"
+
+    def _install(self, path):
+        tok = (parse_qs(urlparse(self.path).query).get("token") or [""])[0]
+        base = self._base()
+        if (tok and not TOKEN_RE.match(tok)) or not base:
+            return self._send(400, b"bad request", "text/plain")
+        script = INSTALL_SH if path.endswith(".sh") else INSTALL_PS1
+        script = script.replace("__HUB__", base).replace("__INVITE__", f"--invite {tok} " if tok else "")
+        self._send(200, script.encode(), "text/plain; charset=utf-8")
+
     def do_GET(self):
-        if self.path.split("?")[0] in ("/", "/index.html"):
-            with open(os.path.join(HERE, "web", "index.html"), "rb") as f:
-                return self._send(200, f.read(), "text/html; charset=utf-8")
+        path = self.path.split("?")[0]
+        if path in ("/", "/index.html"):
+            return self._file("index.html")
+        if path.startswith("/join/"):
+            return self._file("join.html")
+        if path.startswith("/api/invite/"):
+            tok = path[len("/api/invite/"):]
+            owner = None
+            with LOCK:
+                inv = INVITES.get(tok) if TOKEN_RE.match(tok) else None
+                if inv and inv["exp"] > time.time():
+                    owner = DB["machines"].get(inv["owner"])
+            return self._send(200, {"valid": bool(owner), "owner": owner["name"] if owner else None})
+        if path.startswith("/dl/") and path[4:] in DL_FILES:
+            return self._file(path[4:], folder="")
+        if path in ("/install.sh", "/install.ps1"):
+            return self._install(path)
         self._send(404, {"error": "not found"})
 
     def do_POST(self):
@@ -276,12 +349,65 @@ class H(BaseHTTPRequestHandler):
         self._send(code, out)
 
 
+def set_public(url):
+    global PUBLIC_URL
+    PUBLIC_URL = url.rstrip("/")
+
+
+def start_tunnel(port):
+    """Free Cloudflare quick tunnel: gives the hub an internet address, no account needed."""
+    import atexit
+    import platform
+    import shutil
+    import subprocess
+    import urllib.request
+    home = os.path.join(os.path.expanduser("~"), ".manifold")
+    os.makedirs(home, exist_ok=True)
+    local = os.path.join(home, "cloudflared")
+    exe = shutil.which("cloudflared") or (local if os.path.exists(local) else None)
+    if not exe:
+        arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower())
+        if platform.system() != "Linux" or not arch:
+            print("Can't set up the tunnel automatically on this system.")
+            print("Install cloudflared or ngrok yourself, then start the hub with --public-url https://YOUR-ADDRESS")
+            return
+        print("Downloading the free Cloudflare tunnel tool (one time, about 40 MB)...")
+        try:
+            urllib.request.urlretrieve(
+                f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{arch}", local)
+            os.chmod(local, 0o755)
+            exe = local
+        except Exception as e:
+            print("Couldn't download it:", e)
+            print("Use ngrok instead and start the hub with --public-url https://YOUR-ADDRESS")
+            return
+    proc = subprocess.Popen([exe, "tunnel", "--url", f"http://127.0.0.1:{port}", "--no-autoupdate"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    atexit.register(proc.terminate)
+
+    def watch():
+        for line in proc.stdout:
+            m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+            if m and not PUBLIC_URL:
+                set_public(m.group(0))
+                print(f"\nPublic address: {PUBLIC_URL}")
+                print("Open your page, click 'Create invite link' and send it to a friend.\n")
+    threading.Thread(target=watch, daemon=True).start()
+    print("Starting the internet tunnel, the address shows up in a few seconds...")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=8080)
+    p.add_argument("--public", action="store_true", help="open a free internet tunnel so friends can join")
+    p.add_argument("--public-url", default="", help="your own public address (ngrok etc.)")
     a = p.parse_args()
     load()
+    if a.public_url:
+        set_public(a.public_url)
+    elif a.public:
+        start_tunnel(a.port)
     print(f"Manifold Hub on http://{a.host}:{a.port}  (open it in your browser)")
     try:
         ThreadingHTTPServer((a.host, a.port), H).serve_forever()

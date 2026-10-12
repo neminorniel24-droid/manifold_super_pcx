@@ -135,17 +135,28 @@
   }
 
   /* add friend */
-  .connect { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: clamp(24px, 6vw, 80px); padding: 8px 0 96px; align-items: end; }
+  .connect { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 88px); padding: 8px 0 96px; align-items: start; }
   .connect h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; font-stretch: 112%; }
-  .connect p { margin: 0; color: var(--mute); max-width: 44ch; }
-  .connect form { display: flex; gap: 20px; align-items: flex-end; }
-  .connect input { flex: 1; min-width: 0; background: transparent; border: 0; border-bottom: 1px solid var(--line2); border-radius: 0; padding: 4px 0 10px; color: var(--text); font: 300 clamp(28px, 4vw, 44px)/1 var(--font); font-stretch: 125%; letter-spacing: .12em; text-transform: uppercase; }
+  .connect p { margin: 0 0 22px; color: var(--mute); max-width: 44ch; }
+  .connect .cmd { margin: 22px 0 10px; }
+  .connect .hint { font-size: 14px; margin: 0; }
+  .connect form { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .connect input { flex: 1; min-width: 0; background: transparent; border: 0; border-bottom: 1px solid var(--line2); border-radius: 0; padding: 4px 0 10px; color: var(--text); font: 300 clamp(24px, 3vw, 34px)/1 var(--font); font-stretch: 125%; letter-spacing: .12em; text-transform: uppercase; }
   .connect input::placeholder { color: var(--dim); }
   .connect input:focus { outline: 0; border-color: var(--text); }
   .btn { background: var(--text); color: var(--ink); border: 0; border-radius: 2px; padding: 13px 22px; font-weight: 600; font-stretch: 112%; cursor: pointer; white-space: nowrap; }
   .btn:hover { background: #fff; }
   .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line2); }
   .btn.ghost:hover { border-color: var(--text); }
+
+  /* power test */
+  .connect.work { padding-bottom: 56px; align-items: start; }
+  .runout { margin-top: 22px; }
+  .res { display: flex; align-items: baseline; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .res b { min-width: 150px; font-size: clamp(30px, 4vw, 46px); font-weight: 250; font-stretch: 125%; letter-spacing: -.02em; line-height: 1; }
+  .res b small { font-size: .4em; font-weight: 400; color: var(--mute); margin-left: 6px; font-stretch: 100%; }
+  .res span { color: var(--mute); }
+  .runout .verdict { margin: 14px 0 6px; color: var(--text); font-size: 17px; }
 
   /* onboarding */
   .onboard { max-width: 640px; margin: 0 auto; padding: 14vh 0 80px; }
@@ -161,7 +172,7 @@
 
   @media (max-width: 860px) {
     .hero { grid-template-columns: 1fr; padding-top: 36px; }
-    .connect { grid-template-columns: 1fr; align-items: start; }
+    .connect { grid-template-columns: 1fr; }
     .tools .live { display: none; }
   }
   @media (max-width: 480px) {
@@ -199,15 +210,32 @@
     <div class="sec"><h2>Your crew</h2><p>Ranked by power</p></div>
     <div id="shelf"></div>
 
+    <section class="connect work" aria-labelledby="runh">
+      <div>
+        <h2 id="runh">Put the crew to work</h2>
+        <p>Splits a real job across every online machine that is sharing, then times this machine alone to compare.</p>
+      </div>
+      <div>
+        <button class="btn" id="run" type="button">Run power test</button>
+        <div id="runout" class="runout" aria-live="polite"></div>
+      </div>
+    </section>
+
     <section class="connect" aria-labelledby="addh">
       <div>
-        <h2 id="addh">Add a friend's machine</h2>
-        <p>Enter their pairing code. They get a request and choose whether to accept it.</p>
+        <h2 id="addh">Invite a friend</h2>
+        <p>Create a link and send it to them. They run one command and join your crew automatically.</p>
+        <button class="btn" id="mkinvite" type="button">Create invite link</button>
+        <div id="inviteout" aria-live="polite"></div>
       </div>
-      <form id="cf" autocomplete="off">
-        <input id="code-in" inputmode="text" maxlength="7" placeholder="K7X-92P" aria-label="Friend's pairing code" spellcheck="false">
-        <button class="btn" type="submit">Send request</button>
-      </form>
+      <div>
+        <h2>Have their pairing code instead?</h2>
+        <p>They get a request and choose whether to accept it.</p>
+        <form id="cf" autocomplete="off">
+          <input id="code-in" inputmode="text" maxlength="7" placeholder="K7X-92P" aria-label="Friend's pairing code" spellcheck="false">
+          <button class="btn" type="submit">Send request</button>
+        </form>
+      </div>
     </section>
   </div>
 </main>
@@ -338,7 +366,9 @@ function showOnboard(unknown) {
     h("p", {}, "Open the link it prints. Anyone with that link can act as your machine, so keep it to yourself.")));
 }
 
+let lastData = null;
 function render(data) {
+  lastData = data;
   $("#onboard").hidden = true; $("#deck").hidden = false; $("#tools").hidden = false;
   const all = [data.me, ...data.friends].sort((a, b) => b.score - a.score);
   const online = all.filter((p) => p.online);
@@ -400,6 +430,93 @@ async function load() {
     render(data);
   } catch (e) { /* hub unreachable: keep what's on screen */ }
 }
+
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function distribute(workers, n, onNote) {
+  const nchunks = workers.length * 4, step = Math.ceil(n / nchunks), queue = [];
+  for (let lo = 0; lo < n; lo += step) queue.push([lo, Math.min(lo + step, n)]);
+  const alive = new Map(workers.map((w) => [w.code, w]));
+  const pending = new Map(), done = [], attempts = {};
+  const t0 = performance.now();
+  async function feed() {
+    const busy = {};
+    for (const j of pending.values()) busy[j.code] = (busy[j.code] || 0) + 1;
+    while (queue.length && alive.size) {
+      let best = null, bl = Infinity;
+      for (const [c, w] of alive) { const l = (busy[c] || 0) / Math.max(1, w.share_cores); if (l < bl) { bl = l; best = c; } }
+      if ((busy[best] || 0) >= 2) break;
+      const chunk = queue.shift();
+      const { data } = await call("/api/job/submit", { secret, to: best, task: "count_primes", args: { lo: chunk[0], hi: chunk[1] } });
+      if (data.job) { pending.set(data.job, { chunk, code: best }); busy[best] = (busy[best] || 0) + 1; }
+      else { alive.delete(best); queue.unshift(chunk); }
+    }
+  }
+  await feed();
+  while (pending.size || queue.length) {
+    if (!alive.size && !pending.size) throw new Error("Every machine dropped out before the job finished.");
+    await sleep(500);
+    for (const [jid, j] of [...pending]) {
+      const { data } = await call("/api/job/status", { secret, job: jid });
+      if (data.status === "done") { done.push({ code: j.code, res: data.result }); pending.delete(jid); }
+      else if (data.status === "lost" || data.status === "error" || data.error) {
+        alive.delete(j.code); pending.delete(jid);
+        const k = j.chunk.join("-"); attempts[k] = (attempts[k] || 0) + 1;
+        if (attempts[k] > 3) throw new Error("A piece of the job failed too many times.");
+        queue.unshift(j.chunk);
+        if (onNote) onNote(`${(workers.find((w) => w.code === j.code) || {}).name || "A machine"} dropped out. Its work is being re-sent.`);
+      }
+    }
+    await feed();
+  }
+  const per = {};
+  for (const d of done) { const p = per[d.code] || (per[d.code] = { name: (workers.find((w) => w.code === d.code) || {}).name, pieces: 0 }); p.pieces++; }
+  return { wall: (performance.now() - t0) / 1000, total: done.reduce((a, d) => a + d.res.count, 0), per: Object.values(per) };
+}
+
+$("#run").addEventListener("click", async () => {
+  if (!lastData) return;
+  const btn = $("#run"), out = $("#runout"), N = 5000000;
+  const crew = [lastData.me, ...lastData.friends].filter((p) => p.online && p.sharing);
+  const note = (t) => out.replaceChildren(h("p", { class: "hint" }, t));
+  if (!crew.length) return note("No machine is sharing right now. Start an agent with --allow-jobs, or start the hub with python3 host.py.");
+  btn.disabled = true;
+  try {
+    note(`Running on ${crew.length} ${crew.length === 1 ? "machine" : "machines"}...`);
+    const withCrew = await distribute(crew, N, toast);
+    const me = crew.find((p) => p.code === lastData.me.code);
+    let solo = null;
+    if (crew.length > 1 && me) { note("Timing this machine alone for comparison..."); solo = await distribute([me], N, () => {}); }
+    const row = (v, label) => h("div", { class: "res" }, h("b", {}, v.toFixed(1), h("small", {}, "s")), h("span", {}, label));
+    const kids = [row(withCrew.wall, `Crew time across ${crew.length} ${crew.length === 1 ? "machine" : "machines"}`)];
+    if (solo) {
+      kids.push(row(solo.wall, "This machine alone"));
+      const x = solo.wall / withCrew.wall;
+      kids.push(h("p", { class: "verdict" }, x >= 1.05 ? `${x.toFixed(1)}x faster with the crew.` : "No real speedup this time. The job was small, so setup time dominated."));
+    }
+    kids.push(h("p", { class: "hint" }, `${withCrew.total.toLocaleString()} primes found below ${N.toLocaleString()}. ` + withCrew.per.map((p) => `${p.name}: ${p.pieces} pieces`).join(", ") + "."));
+    out.replaceChildren(...kids);
+  } catch (e) { note(e.message || "The test failed. Try again."); }
+  finally { btn.disabled = false; }
+});
+
+$("#mkinvite").addEventListener("click", async () => {
+  const out = $("#inviteout");
+  try {
+    const { ok, data } = await call("/api/invite", { secret });
+    if (!ok) return toast((data.error || "Couldn't create the link") + ".");
+    const local = ["127.0.0.1", "localhost", "[::1]"].includes(location.hostname);
+    const base = data.public_url || (local ? "" : location.origin);
+    if (!base) {
+      out.replaceChildren(h("p", { class: "hint" }, "Friends can't reach this hub yet. Stop it, start it with python3 hub.py --public to get an internet address, then create the link again."));
+      return;
+    }
+    const link = base + "/join/" + data.token;
+    out.replaceChildren(
+      h("div", { class: "cmd" }, h("code", {}, link), h("button", { class: "btn ghost", type: "button", onclick: () => copy(link) }, "Copy")),
+      h("p", { class: "hint" }, "Works once and expires in 48 hours. Send it only to the friend you want to add."));
+  } catch (e) { toast("Couldn't reach the hub. Try again."); }
+});
 
 const input = $("#code-in");
 input.addEventListener("input", () => {

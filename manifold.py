@@ -49,6 +49,26 @@ def get_gpus():
         return []
 
 
+def _other_ram():
+    """RAM on Windows and macOS (Linux reads /proc/meminfo)."""
+    try:
+        if os.name == "nt":
+            import ctypes
+
+            class MS(ctypes.Structure):
+                _fields_ = [("l", ctypes.c_ulong), ("m", ctypes.c_ulong), ("tp", ctypes.c_ulonglong),
+                            ("ap", ctypes.c_ulonglong), ("tpf", ctypes.c_ulonglong), ("apf", ctypes.c_ulonglong),
+                            ("tv", ctypes.c_ulonglong), ("av", ctypes.c_ulonglong), ("ae", ctypes.c_ulonglong)]
+            s = MS()
+            s.l = ctypes.sizeof(MS)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(s))
+            return round(s.tp / 2 ** 30, 1), round(s.ap / 2 ** 30, 1)
+        out = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=5).stdout
+        return round(int(out.strip()) / 2 ** 30, 1), None
+    except Exception:
+        return None, None
+
+
 def get_specs():
     total = free = None
     try:
@@ -58,6 +78,22 @@ def get_specs():
         free = round(m.get("MemAvailable", 0) / 1048576, 1)
     except Exception:
         pass
+    if total is None:
+        total, free = _other_ram()
+    if total is None and sys.platform == "win32":  # Windows has no /proc
+        try:
+            import ctypes
+
+            class MS(ctypes.Structure):
+                _fields_ = [("l", ctypes.c_ulong), ("load", ctypes.c_ulong), ("tp", ctypes.c_ulonglong),
+                            ("ap", ctypes.c_ulonglong), ("tv", ctypes.c_ulonglong), ("av", ctypes.c_ulonglong),
+                            ("tpf", ctypes.c_ulonglong), ("apf", ctypes.c_ulonglong), ("x", ctypes.c_ulonglong)]
+            m = MS()
+            m.l = ctypes.sizeof(MS)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+            total, free = round(m.tp / 2**30, 1), round(m.ap / 2**30, 1)
+        except Exception:
+            pass
     try:
         load = round(os.getloadavg()[0], 2)
     except Exception:

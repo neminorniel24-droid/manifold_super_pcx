@@ -81,3 +81,24 @@ python3 crew_run.py --hub http://HUB:8080 --n 5000000
 
 `crew_run.py` splits the job across you and your online, sharing friends. If a machine drops
 mid-job, its pieces are re-sent to someone else.
+
+## Easy mode (recommended)
+
+**You (the host):** one command. It starts the hub, opens a free public address, joins your own
+laptop to the crew and opens your page.
+
+```bash
+python3 host.py
+```
+
+On your page, click **Create invite link** and send the link to a friend (it works once, for 48 hours).
+
+**Your friend:** opens your link, copies the one command shown for their system (Windows, or Linux/WSL)
+and pastes it. It saves two small files to a `manifold` folder, joins your crew automatically and
+starts sharing. Closing the window or pressing Ctrl+C stops sharing at once.
+
+**Running work:** click **Run power test** on your page. It splits a real job across everyone who is
+sharing and times your machine alone for comparison. No terminal needed.
+
+Notes: invite links are kept in memory, so restarting the hub clears unused ones. The Windows
+install path has not been tested on a real Windows machine yet.

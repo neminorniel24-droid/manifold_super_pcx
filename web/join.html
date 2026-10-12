@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Join a crew on Manifold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0b0c0e; --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.2); --text:#eceef1; --mute:#9aa1ac; --dim:#666d79; --font:"Archivo",ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { color-scheme: dark; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 400 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+  .top { border-bottom: 1px solid var(--line); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); }
+  .top .wrap { display: flex; align-items: center; height: 68px; gap: 12px; font-stretch: 125%; font-weight: 600; font-size: 17px; letter-spacing: .02em; }
+  main { padding: clamp(48px, 12vh, 120px) 0 80px; }
+  h1 { margin: 0 0 18px; font-size: clamp(32px, 6vw, 56px); font-weight: 250; font-stretch: 125%; line-height: 1.05; letter-spacing: -.025em; }
+  h2 { margin: 44px 0 10px; font-size: 18px; font-weight: 500; font-stretch: 112%; }
+  p { margin: 0 0 14px; color: var(--mute); max-width: 56ch; }
+  .tabs { display: flex; gap: 22px; margin: 30px 0 14px; border-bottom: 1px solid var(--line); }
+  .tab { background: none; border: 0; padding: 0 0 12px; color: var(--mute); font: 500 15px var(--font); font-stretch: 112%; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab[aria-selected="true"] { color: var(--text); border-color: var(--text); }
+  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line2); border-radius: 2px; padding: 16px; }
+  .cmd code { font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; color: var(--text); }
+  .btn { background: var(--text); color: var(--ink); border: 0; border-radius: 2px; padding: 12px 20px; font: 600 15px var(--font); font-stretch: 112%; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: #fff; }
+  .note { margin-top: 12px; font-size: 14px; }
+  ul { margin: 0; padding-left: 20px; color: var(--mute); max-width: 56ch; }
+  li { margin-bottom: 8px; }
+  li strong { color: var(--text); font-weight: 500; }
+  .bad { border-left: 2px solid var(--text); padding-left: 14px; color: var(--text); }
+  #toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--text); color: var(--ink); padding: 12px 18px; border-radius: 2px; font-weight: 500; opacity: 0; pointer-events: none; transition: .25s; }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="14" height="14" stroke="#eceef1" stroke-width="1.5"/><rect x="9.5" y="9.5" width="14" height="14" stroke="#eceef1" stroke-width="1.5" opacity=".55"/></svg>
+  Manifold
+</div></header>
+
+<main class="wrap">
+  <div id="bad" hidden>
+    <h1>This invite link isn't valid</h1>
+    <p>It may have been used already or expired. Invite links work once and last 48 hours. Ask your friend for a new one.</p>
+  </div>
+
+  <div id="ok" hidden>
+    <h1 id="title"></h1>
+    <p>Run one command and your laptop joins their crew. They can then send it work, and you show up on their leaderboard.</p>
+
+    <div class="tabs" role="tablist" aria-label="Your system">
+      <button class="tab" role="tab" id="t-win" aria-selected="false">Windows</button>
+      <button class="tab" role="tab" id="t-lin" aria-selected="false">Linux or WSL</button>
+    </div>
+    <div class="cmd"><code id="cmd"></code><button class="btn" id="copy">Copy</button></div>
+    <p class="note" id="hint"></p>
+
+    <h2>What happens when you run it</h2>
+    <ul>
+      <li><strong>Two small files are saved</strong> to a folder called manifold in your home folder.</li>
+      <li><strong>Your laptop joins the crew</strong> and prints a private link. Open it to see your card.</li>
+      <li><strong>Your friend can use up to half your CPU cores</strong> while the window is open.</li>
+    </ul>
+
+    <h2>What is shared, and what isn't</h2>
+    <ul>
+      <li><strong>Shared:</strong> your CPU model, core count, memory, and graphics card name and memory.</li>
+      <li><strong>Not shared:</strong> your files, your screen or anything else on your computer.</li>
+      <li><strong>Only built-in tasks run.</strong> Nobody can run their own commands on your laptop.</li>
+      <li><strong>You stay in control.</strong> Close the window or press Ctrl+C to stop sharing at once.</li>
+    </ul>
+  </div>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const token = location.pathname.split("/").filter(Boolean).pop() || "";
+const origin = location.origin;
+const cmds = {
+  win: `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm '${origin}/install.ps1?token=${token}' | iex"`,
+  lin: `curl -fsSL "${origin}/install.sh?token=${token}" | bash`,
+};
+const hints = {
+  win: "Open PowerShell and paste it. You need Python 3 first. If you don't have it, run: winget install Python.Python.3.12",
+  lin: "Open your terminal (Ubuntu or WSL) and paste it. You need Python 3, which most systems already have.",
+};
+let toastTimer;
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 3000); }
+function pick(os) {
+  for (const k of ["win", "lin"]) $("#t-" + k).setAttribute("aria-selected", String(k === os));
+  $("#cmd").textContent = cmds[os]; $("#hint").textContent = hints[os]; $("#copy").dataset.os = os;
+}
+$("#t-win").onclick = () => pick("win");
+$("#t-lin").onclick = () => pick("lin");
+$("#copy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("#cmd").textContent); toast("Copied. Paste it into your terminal."); }
+  catch (e) { toast("Couldn't copy. Select the command and copy it yourself."); }
+};
+(async () => {
+  try {
+    const r = await fetch("/api/invite/" + encodeURIComponent(token));
+    const d = await r.json();
+    if (!d.valid) { $("#bad").hidden = false; return; }
+    $("#title").textContent = d.owner + " invited you to their crew";
+    document.title = d.owner + " invited you to Manifold";
+    $("#ok").hidden = false;
+    pick(/win/i.test(navigator.platform || navigator.userAgent) ? "win" : "lin");
+  } catch (e) { $("#bad").hidden = false; }
+})();
+</script>
+</body>
+</html>
