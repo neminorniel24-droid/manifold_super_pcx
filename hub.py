@@ -135,6 +135,11 @@ def crew_view(me):
 def api(path, b):
     with LOCK:
         if path == "/api/register":
+            tok = str(b.get("invite", ""))
+            if tok:  # a bad invite must fail loudly, not register a lone laptop
+                inv0 = INVITES.get(tok)
+                if not inv0 or inv0["exp"] <= time.time() or inv0["owner"] not in DB["machines"]:
+                    return 400, {"error": "This invite link has expired or was already used. Ask your friend for a new one."}
             code = new_code()
             m = {"code": code, "secret": secrets.token_urlsafe(24),
                  "name": str(b.get("name", "My laptop"))[:30] or "My laptop",

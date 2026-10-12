@@ -86,8 +86,8 @@ const $ = (s) => document.querySelector(s);
 const token = location.pathname.split("/").filter(Boolean).pop() || "";
 const origin = location.origin;
 const cmds = {
-  win: `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm '${origin}/install.ps1?token=${token}' | iex"`,
-  lin: `curl -fsSL "${origin}/install.sh?token=${token}" | bash`,
+  win: `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm -Headers @{'ngrok-skip-browser-warning'='1'} '${origin}/install.ps1?token=${token}' | iex"`,
+  lin: `curl -fsSL -H "ngrok-skip-browser-warning: 1" "${origin}/install.sh?token=${token}" | bash`,
 };
 const hints = {
   win: "Open PowerShell and paste it. You need Python 3 first. If you don't have it, run: winget install Python.Python.3.12",
