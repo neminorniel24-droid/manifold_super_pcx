@@ -102,3 +102,41 @@ sharing and times your machine alone for comparison. No terminal needed.
 
 Notes: invite links are kept in memory, so restarting the hub clears unused ones. The Windows
 install path has not been tested on a real Windows machine yet.
+
+## Bigger crews
+
+There is no fixed limit on how many machines can join. Tested with 40 online laptops plus 5 that dropped out.
+
+- **One link, many people.** When you create an invite link, pick how many people can use it (1, 5, 10 or 25). It expires after 48 hours, and "Cancel all open invite links" ends every open link at once. Invites are saved, so restarting the hub keeps them.
+- **Only the host can use the crew's power.** People who join through your link can't send work to you or to each other. Machines paired by code can still send work both ways.
+- **Quiet when idle.** Agents wait on the hub for work instead of asking twice a second, which cuts idle traffic to a few requests per second even with dozens of machines.
+- **Slow machines don't hold the job up.** When all pieces are handed out, idle machines race the slowest pieces and the first answer wins.
+- **Page for many machines.** Cards sit in a grid, online machines come first, offline ones can be hidden, and a Remove button drops a machine from your crew.
+
+Old copies of `agent.py` keep working with the new hub, but they ask for work twice a second. Re-run the join command to update them.
+
+## Console (workflows)
+
+Click **Console** in the page header, or press the backtick key (`` ` ``), to open a terminal
+at the bottom of the page. It talks to your crew with short commands:
+
+```
+status [--all]                  the crew and its combined power
+run primes <n> [--compare]      split a job across the crew (500k, 5m, 1e6; max 200m)
+     [--on <machine>]           one machine only (name, pairing code, or me)
+ping                            round trips to the hub
+invite [people]                 a join link for 1 to 25 people
+remove <machine> [--yes]        drop a machine from your crew
+workflow list | save <name> "<commands>" | run <name> | rm <name>
+```
+
+Chain commands with `;`. A workflow is just a saved chain, kept in your browser:
+
+```
+workflow save nightly "status; run primes 20m --compare"
+workflow run nightly
+```
+
+Keys: Up/Down history, Tab completes commands and machine names, Ctrl+C cancels a running job,
+Ctrl+L clears. Cancelling stops pieces nobody has started; a piece a machine is already
+crunching finishes first. Update the hub (`hub.py`) as well as the page, since cancel needs a new endpoint.

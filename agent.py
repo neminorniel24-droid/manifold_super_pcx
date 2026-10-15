@@ -57,11 +57,11 @@ def share_specs():
             "gpus": [{"name": g["name"], "vram_mb": g["vram_mb"]} for g in s["gpus"]]}
 
 
-def post(hub, path, body):
+def post(hub, path, body, timeout=15):
     req = urllib.request.Request(hub.rstrip("/") + path, data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.load(r)
     except urllib.error.HTTPError as e:
         try:
@@ -153,9 +153,12 @@ def main():
             time.sleep(2)
             continue
         try:
-            job = post(a.hub, "/api/job/poll", {"secret": box["state"]["secret"]})["job"]
+            t0 = time.time()
+            # the hub holds this request open until a job arrives (up to 20s), so idle agents stay quiet
+            job = post(a.hub, "/api/job/poll", {"secret": box["state"]["secret"], "wait": 20}, timeout=35)["job"]
             if not job:
-                time.sleep(0.5)
+                if time.time() - t0 < 2:  # an older hub answers at once: don't hammer it
+                    time.sleep(0.5)
                 continue
             fn = TASKS.get(job["task"])
             if not fn:

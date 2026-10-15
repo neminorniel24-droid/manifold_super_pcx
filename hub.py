@@ -8,6 +8,7 @@ including mobile data). Friends connect with a short pairing code and the other
 side must accept. Stdlib only.
 """
 import argparse
+import hashlib
 import hmac
 import json
 import os
@@ -28,8 +29,13 @@ JOBS = {}  # job id -> job (memory only)
 ALLOWED_TASKS = {"count_primes"}  # built-in tasks only, never arbitrary code
 MAX_RANGE = 50_000_000
 PUBLIC_URL = ""
-INVITES = {}  # token -> {"owner": code, "exp": ts}
 INVITE_TTL = 48 * 3600
+INVITE_MAX = 25            # most people one invite link can add
+JOB_COND = threading.Condition()  # wakes long-polling agents when a job arrives
+JOB_SEQ = [0]
+POLL_MAX_SECS = 25         # longest an agent's job request may wait on the hub
+JOB_MAX_SECS = 900         # a job running longer than this is treated as lost
+SECRET_INDEX = {}          # sha256(secret) -> machine code, so lookups don't scan every machine
 DL_FILES = {"manifold.py", "agent.py"}
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
 HOST_RE = re.compile(r"^[A-Za-z0-9.-]+(:[0-9]{1,5})?$")
@@ -54,6 +60,23 @@ def load():
             DB = json.load(f)
     except Exception:
         DB = {"machines": {}}
+    DB.setdefault("machines", {})
+    reindex()
+
+
+def invs():
+    """Open invite links, saved with the rest of the hub data so a restart keeps them."""
+    return DB.setdefault("invites", {})
+
+
+def sec_hash(sec):
+    return hashlib.sha256(str(sec).encode()).hexdigest()
+
+
+def reindex():
+    SECRET_INDEX.clear()
+    for code, m in DB["machines"].items():
+        SECRET_INDEX[sec_hash(m["secret"])] = code
 
 
 def save():
@@ -110,15 +133,22 @@ def new_code():
 
 
 def by_secret(sec):
-    for m in DB["machines"].values():
-        if hmac.compare_digest(m["secret"].encode(), str(sec).encode()):
-            return m
+    code = SECRET_INDEX.get(sec_hash(sec))
+    m = DB["machines"].get(code) if code else None
+    if m and hmac.compare_digest(m["secret"].encode(), str(sec).encode()):
+        return m
     return None
 
 
 def crew_view(me):
     ms = DB["machines"]
-    friends = [public(ms[c]) for c in me["friends"] if c in ms]
+    friends = []
+    for c in me["friends"]:
+        if c in ms:
+            p = public(ms[c])
+            p["is_leader"] = me.get("leader") == c       # the machine whose invite brought me in
+            p["can_run"] = not p["is_leader"]            # members can't send work to their crew leader
+            friends.append(p)
     pool = {"machines": 0, "cores": 0, "ram_gb": 0.0, "vram_gb": 0.0}
     for p in [public(me)] + friends:
         if p["online"]:
@@ -128,34 +158,46 @@ def crew_view(me):
             pool["vram_gb"] += sum(g["vram_gb"] for g in p["specs"]["gpus"])
     pool = {k: round(v, 1) for k, v in pool.items()}
     incoming = [{"code": c, "name": ms[c]["name"]} for c in me["pending"] if c in ms]
-    return {"me": public(me), "friends": friends, "incoming": incoming, "pool": pool,
+    return {"me": dict(public(me), can_run=True), "friends": friends, "incoming": incoming, "pool": pool,
             "public_url": PUBLIC_URL}
+
+
+def refresh_lost(j):
+    """Mark a job lost if its machine went offline, or it has run far too long."""
+    if j["status"] in ("queued", "running"):
+        t = DB["machines"].get(j["to"])
+        if (not t or time.time() - t["last_seen"] >= ONLINE_SECS
+                or (j["status"] == "running" and time.time() - j.get("started", time.time()) > JOB_MAX_SECS)):
+            j["status"] = "lost"
 
 
 def api(path, b):
     with LOCK:
         if path == "/api/register":
             tok = str(b.get("invite", ""))
+            inv = None
             if tok:  # a bad invite must fail loudly, not register a lone laptop
-                inv0 = INVITES.get(tok)
-                if not inv0 or inv0["exp"] <= time.time() or inv0["owner"] not in DB["machines"]:
-                    return 400, {"error": "This invite link has expired or was already used. Ask your friend for a new one."}
+                inv = invs().get(tok)
+                if (not inv or inv["exp"] <= time.time() or inv["uses_left"] <= 0
+                        or inv["owner"] not in DB["machines"]):
+                    return 400, {"error": "This invite link has expired or is used up. Ask your friend for a new one."}
             code = new_code()
             m = {"code": code, "secret": secrets.token_urlsafe(24),
                  "name": str(b.get("name", "My laptop"))[:30] or "My laptop",
                  "specs": clean_specs(b.get("specs")), "last_seen": time.time(),
                  "friends": [], "pending": []}
             DB["machines"][code] = m
+            SECRET_INDEX[sec_hash(m["secret"])] = code
             joined = None
-            tok = str(b.get("invite", ""))
-            inv = INVITES.get(tok)
-            if inv and inv["exp"] > time.time():
-                owner = DB["machines"].get(inv["owner"])
-                if owner:
-                    owner["friends"].append(code)
-                    m["friends"].append(owner["code"])
-                    joined = owner["name"]
-                del INVITES[tok]
+            if inv:
+                owner = DB["machines"][inv["owner"]]
+                owner["friends"].append(code)
+                m["friends"].append(owner["code"])
+                m["leader"] = owner["code"]
+                joined = owner["name"]
+                inv["uses_left"] -= 1
+                if inv["uses_left"] <= 0:
+                    del invs()[tok]
             save()
             return 200, {"code": code, "secret": m["secret"], "joined": joined}
 
@@ -204,17 +246,32 @@ def api(path, b):
             return 200, {"ok": True}
         if path == "/api/invite":
             now = time.time()
-            for k in [k for k, v in INVITES.items() if v["exp"] < now]:
-                del INVITES[k]
-            if sum(1 for v in INVITES.values() if v["owner"] == me["code"]) >= 10:
-                return 429, {"error": "too many open invites; use one or wait for them to expire"}
+            iv = invs()
+            for k in [k for k, v in iv.items() if v["exp"] < now or v["uses_left"] <= 0]:
+                del iv[k]
+            if sum(1 for v in iv.values() if v["owner"] == me["code"]) >= 10:
+                return 429, {"error": "too many open invites; cancel the old ones first"}
+            try:
+                size = int(b.get("size") or 1)
+            except Exception:
+                size = 1
+            size = max(1, min(size, INVITE_MAX))
             tok = secrets.token_urlsafe(9)
-            INVITES[tok] = {"owner": me["code"], "exp": now + INVITE_TTL}
-            return 200, {"token": tok, "public_url": PUBLIC_URL}
+            iv[tok] = {"owner": me["code"], "exp": now + INVITE_TTL, "uses_left": size, "size": size}
+            save()
+            return 200, {"token": tok, "public_url": PUBLIC_URL, "size": size}
+        if path == "/api/invite/revoke_all":
+            iv = invs()
+            gone = [k for k, v in iv.items() if v["owner"] == me["code"]]
+            for k in gone:
+                del iv[k]
+            save()
+            return 200, {"revoked": len(gone)}
         if path == "/api/job/submit":
             target = DB["machines"].get(str(b.get("to", "")).strip().upper())
-            if not target or (target is not me and target["code"] not in me["friends"]):
-                return 403, {"error": "you can only send jobs to connected friends"}
+            if (not target or (target is not me and target["code"] not in me["friends"])
+                    or me.get("leader") == target["code"]):
+                return 403, {"error": "you can only send jobs to machines in your own crew"}
             if not target.get("sharing") or time.time() - target["last_seen"] >= ONLINE_SECS:
                 return 409, {"error": "that machine is offline or not sharing"}
             if b.get("task") not in ALLOWED_TASKS:
@@ -237,11 +294,12 @@ def api(path, b):
                          "created": now}
             return 200, {"job": jid}
         if path == "/api/job/poll":
+            me["last_seen"] = time.time()  # asking for work proves the agent is alive
             if not me.get("sharing"):
                 return 200, {"job": None}
             for j in JOBS.values():
                 if j["to"] == me["code"] and j["status"] == "queued":
-                    j["status"] = "running"
+                    j["status"], j["started"] = "running", time.time()
                     return 200, {"job": {"id": j["id"], "task": j["task"], "args": j["args"]}}
             return 200, {"job": None}
         if path == "/api/job/result":
@@ -263,11 +321,26 @@ def api(path, b):
             j = JOBS.get(str(b.get("job", "")))
             if not j or j["from"] != me["code"]:
                 return 404, {"error": "no such job"}
-            if j["status"] in ("queued", "running"):
-                t = DB["machines"].get(j["to"])
-                if not t or time.time() - t["last_seen"] >= ONLINE_SECS:
-                    j["status"] = "lost"
+            refresh_lost(j)
             return 200, {"status": j["status"], "result": j["result"], "to": j["to"]}
+        if path == "/api/job/statuses":  # many jobs in one request, so big crews don't flood the hub
+            out = {}
+            ids = b.get("jobs")
+            for jid in (ids if isinstance(ids, list) else [])[:500]:
+                j = JOBS.get(str(jid))
+                if j and j["from"] == me["code"]:
+                    refresh_lost(j)
+                    out[str(jid)] = {"status": j["status"], "result": j["result"]}
+            return 200, {"jobs": out}
+        if path == "/api/job/cancel":  # stop pieces nobody has started yet
+            n = 0
+            ids = b.get("jobs")
+            for jid in (ids if isinstance(ids, list) else [])[:500]:
+                j = JOBS.get(str(jid))
+                if j and j["from"] == me["code"] and j["status"] == "queued":
+                    j["status"] = "cancelled"
+                    n += 1
+            return 200, {"cancelled": n}
         if path == "/api/disconnect":
             code = str(b.get("code", "")).strip().upper()
             if code in me["friends"]:
@@ -278,6 +351,26 @@ def api(path, b):
             save()
             return 200, {"ok": True}
     return 404, {"error": "not found"}
+
+
+def long_poll(b):
+    """Hold an agent's job request open until work arrives (or the wait ends).
+    Far fewer requests than asking twice a second, and jobs start instantly."""
+    try:
+        wait = max(1.0, min(float(b.get("wait")), POLL_MAX_SECS))
+    except Exception:
+        wait = 1.0
+    deadline = time.time() + wait
+    while True:
+        with JOB_COND:
+            seq = JOB_SEQ[0]
+        code, out = api("/api/job/poll", b)
+        left = deadline - time.time()
+        if code != 200 or out.get("job") or left <= 0:
+            return code, out
+        with JOB_COND:
+            if JOB_SEQ[0] == seq:  # nothing new arrived while we were checking
+                JOB_COND.wait(timeout=min(left, 5.0))
 
 
 class H(BaseHTTPRequestHandler):
@@ -330,8 +423,8 @@ class H(BaseHTTPRequestHandler):
             tok = path[len("/api/invite/"):]
             owner = None
             with LOCK:
-                inv = INVITES.get(tok) if TOKEN_RE.match(tok) else None
-                if inv and inv["exp"] > time.time():
+                inv = invs().get(tok) if TOKEN_RE.match(tok) else None
+                if inv and inv["exp"] > time.time() and inv["uses_left"] > 0:
                     owner = DB["machines"].get(inv["owner"])
             return self._send(200, {"valid": bool(owner), "owner": owner["name"] if owner else None})
         if path.startswith("/dl/") and path[4:] in DL_FILES:
@@ -350,7 +443,14 @@ class H(BaseHTTPRequestHandler):
                 raise ValueError("bad body")
         except Exception:
             return self._send(400, {"error": "bad request"})
-        code, out = api(self.path, b)
+        if self.path == "/api/job/poll" and b.get("wait"):  # only agents that ask for it wait
+            code, out = long_poll(b)
+        else:
+            code, out = api(self.path, b)
+        if code == 200 and self.path == "/api/job/submit":
+            with JOB_COND:
+                JOB_SEQ[0] += 1
+                JOB_COND.notify_all()
         self._send(code, out)
 
 

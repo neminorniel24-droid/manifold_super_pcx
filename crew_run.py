@@ -38,7 +38,7 @@ def main():
     crew = post(a.hub, "/api/crew", {"secret": secret})
     if "error" in crew:
         raise SystemExit("hub says: " + crew["error"])
-    workers = [m for m in [crew["me"]] + crew["friends"] if m["online"] and m["sharing"]]
+    workers = [m for m in [crew["me"]] + crew["friends"] if m["online"] and m["sharing"] and m.get("can_run", True)]
     if not workers:
         raise SystemExit("Nobody is sharing. Start agents with --allow-jobs.")
     print("Workers:", ", ".join(f"{w['name']} ({w['share_cores']} cores)" for w in workers))
@@ -77,9 +77,10 @@ def main():
         if not alive and (queue or pending) and not pending:
             raise SystemExit("All workers dropped. Job incomplete.")
         time.sleep(0.5)
+        batch = post(a.hub, "/api/job/statuses", {"secret": secret, "jobs": list(pending)}).get("jobs", {}) if pending else {}
         for jid in list(pending):
             chunk, wc = pending[jid]
-            r = post(a.hub, "/api/job/status", {"secret": secret, "job": jid})
+            r = batch.get(jid, {"error": "job vanished"})
             st = r.get("status")
             if st == "done":
                 done.append((chunk, wc, r["result"]))

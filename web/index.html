@@ -79,8 +79,19 @@
   .sec p { margin: 0; color: var(--mute); font-size: 14px; }
 
   /* shelf */
-  .shelf { display: flex; gap: 22px; overflow-x: auto; scroll-snap-type: x proximity; padding: 6px 2px 30px; }
-  .slot { flex: none; width: 244px; scroll-snap-align: start; }
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(244px, 1fr)); gap: 34px 24px; padding: 6px 2px 30px; }
+  .slot { min-width: 0; }
+  .crewbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0 0 22px; color: var(--mute); font-size: 14px; }
+  .link, .rm { background: none; border: 0; padding: 4px 0; color: var(--mute); font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line2); }
+  .link:hover, .rm:hover { color: var(--text); text-decoration-color: var(--text); }
+  .rm { display: block; margin-top: 8px; color: var(--dim); }
+  .more { margin: 4px 0 28px; }
+  .invrow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+  .sizepick { display: inline-flex; align-items: center; gap: 10px; color: var(--mute); font-size: 14px; }
+  .sizepick select { background: transparent; color: var(--text); border: 1px solid var(--line2); border-radius: 2px; padding: 11px 10px; font: inherit; font-size: 15px; }
+  .sizepick select:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+  .sizepick option { background: #15171b; color: var(--text); }
+  #revokeinv { margin-top: 14px; }
   .rank { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
   .rank b { font-size: 30px; font-weight: 300; font-stretch: 125%; letter-spacing: -.02em; }
   .rank span { font-size: 13px; color: var(--ink); background: var(--text); padding: 1px 7px; border-radius: 2px; font-weight: 600; }
@@ -170,6 +181,37 @@
   #toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--text); color: var(--ink); padding: 12px 18px; border-radius: 2px; font-weight: 500; opacity: 0; pointer-events: none; transition: .25s; max-width: calc(100vw - 32px); }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
 
+  /* console */
+  .chip.conbtn { display: inline-flex; align-items: center; gap: 8px; font-stretch: 100%; letter-spacing: .02em; }
+  .chip.conbtn kbd { font: 500 11px/1 ui-monospace, Consolas, monospace; color: var(--mute); border: 1px solid var(--line2); border-radius: 2px; padding: 2px 5px; }
+  .chip.conbtn[aria-expanded="true"] { border-color: var(--text); background: rgba(255,255,255,.06); }
+  #con { --conh: min(46vh, 440px); --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    position: fixed; left: 0; right: 0; bottom: 0; height: var(--conh); z-index: 20; display: flex; flex-direction: column;
+    background: #07080a; border-top: 1px solid var(--line2); font: 13px/1.55 var(--mono); }
+  body.conopen { padding-bottom: calc(min(46vh, 440px) + 24px); }
+  body.conopen #toast { bottom: calc(min(46vh, 440px) + 16px); }
+  .conbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px clamp(16px, 4vw, 48px); border-bottom: 1px solid var(--line); color: var(--mute); font: 500 12px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+  .conbar button { background: none; border: 0; color: var(--mute); cursor: pointer; font-size: 18px; line-height: 1; padding: 4px 8px; }
+  .conbar button:hover { color: var(--text); }
+  #conlog { flex: 1; overflow: auto; padding: 10px clamp(16px, 4vw, 48px); overscroll-behavior: contain; }
+  #conlog .ln { white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  #conlog .ln.tbl { white-space: pre; word-break: normal; }
+  #conlog .c-in { color: var(--mute); }
+  #conlog .c-dim { color: var(--dim); }
+  #conlog .c-err { color: #ff5a36; }
+  #conlog .c-acc { color: #f2b84b; }
+  .conrow { display: flex; align-items: center; gap: 10px; padding: 8px clamp(16px, 4vw, 48px) 10px; border-top: 1px solid var(--line); }
+  .conrow label { color: #f2b84b; white-space: nowrap; }
+  .conrow.busy label { color: var(--dim); }
+  #conin { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); font: inherit; caret-color: #f2b84b; }
+
+  @media (max-width: 600px) {
+    #con { --conh: 60vh; }
+    body.conopen { padding-bottom: calc(60vh + 24px); }
+    body.conopen #toast { bottom: calc(60vh + 16px); }
+    #conin { font-size: 16px; }
+    .chip.conbtn kbd { display: none; }
+  }
   @media (max-width: 860px) {
     .hero { grid-template-columns: 1fr; padding-top: 36px; }
     .connect { grid-template-columns: 1fr; }
@@ -193,6 +235,7 @@
     </div>
     <div class="tools" id="tools" hidden>
       <span id="live"></span>
+      <button class="chip conbtn" id="conbtn" type="button" aria-expanded="false" aria-controls="con" title="Open the console (backtick key)">Console <kbd>`</kbd></button>
       <button class="chip" id="mycode" title="Copy your pairing code"></button>
     </div>
   </div>
@@ -224,9 +267,17 @@
     <section class="connect" aria-labelledby="addh">
       <div>
         <h2 id="addh">Invite a friend</h2>
-        <p>Create a link and send it to them. They run one command and join your crew automatically.</p>
-        <button class="btn" id="mkinvite" type="button">Create invite link</button>
+        <p>Create a link and send it to a friend, or to a whole group by picking how many people can use it. They run one command and join your crew automatically.</p>
+        <div class="invrow">
+          <label class="sizepick">People
+            <select id="invsize" aria-label="How many people can use this link">
+              <option value="1">1</option><option value="5">5</option><option value="10">10</option><option value="25">25</option>
+            </select>
+          </label>
+          <button class="btn" id="mkinvite" type="button">Create invite link</button>
+        </div>
         <div id="inviteout" aria-live="polite"></div>
+        <button class="rm" id="revokeinv" type="button">Cancel all open invite links</button>
       </div>
       <div>
         <h2>Have their pairing code instead?</h2>
@@ -240,6 +291,15 @@
   </div>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
+
+<section id="con" aria-label="Console" hidden>
+  <div class="conbar"><span>Console</span><button type="button" id="conx" aria-label="Close console">&times;</button></div>
+  <div id="conlog" role="log" aria-live="polite" tabindex="0"></div>
+  <form class="conrow" id="conrow" autocomplete="off">
+    <label for="conin" id="conprompt">crew &rsaquo;</label>
+    <input id="conin" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Console command">
+  </form>
+</section>
 
 <script>
 "use strict";
@@ -317,7 +377,7 @@ function card(p) {
       h("dl", { class: "stats" }, stat("CPU", `${p.specs.cores} cores`), stat("Memory", `${fmt(p.specs.ram_gb)} GB`), stat("GPU", gpu)),
       h("footer", { class: "cf" },
         h("span", { class: "live" }, h("i", { class: "dot" + (p.online ? "" : " off") }), p.online ? "Online" : "Offline"),
-        h("span", {}, p.sharing ? `Sharing ${p.share_cores} cores` : "Not sharing")),
+        h("span", {}, !p.online ? "" : p.sharing ? `Sharing ${p.share_cores} cores` : "Not sharing")),
       h("div", { class: "foil" })));
   tilt(el);
   return el;
@@ -366,11 +426,30 @@ function showOnboard(unknown) {
     h("p", {}, "Open the link it prints. Anyone with that link can act as your machine, so keep it to yourself.")));
 }
 
-let lastData = null;
+let lastData = null, showOffline = true, showAll = false;
+const SHELF_LIMIT = matchMedia("(max-width: 600px)").matches ? 8 : 24;  // fewer cards at once on a phone
+
+function removeButton(p) {
+  const label = p.is_leader ? "Leave this crew" : "Remove";
+  const b = h("button", { class: "rm", type: "button" }, label);
+  let armed = false, timer;
+  b.addEventListener("click", async () => {
+    if (!armed) {  // two clicks, so a stray tap doesn't drop someone
+      armed = true; b.textContent = "Click again to confirm";
+      timer = setTimeout(() => { armed = false; b.textContent = label; }, 3000);
+      return;
+    }
+    clearTimeout(timer);
+    try { await call("/api/disconnect", { secret, code: p.code }); toast(p.is_leader ? "You left that crew." : `${p.name} removed.`); load(); }
+    catch (e) { toast("Couldn't reach the hub. Try again."); }
+  });
+  return b;
+}
+
 function render(data) {
   lastData = data;
   $("#onboard").hidden = true; $("#deck").hidden = false; $("#tools").hidden = false;
-  const all = [data.me, ...data.friends].sort((a, b) => b.score - a.score);
+  const all = [data.me, ...data.friends].sort((a, b) => (b.online - a.online) || (b.score - a.score));  // online first, then by power
   const online = all.filter((p) => p.online);
   const total = online.reduce((a, p) => a + p.score, 0);
   const cores = online.reduce((a, p) => a + p.specs.cores, 0);
@@ -397,7 +476,8 @@ function render(data) {
       h("p", { class: "lede" }, online.length === 0 ? "Nothing is online right now." :
         online.length === 1 ? "1 machine online. Add a friend to combine power." : `${online.length} machines online, working as one.`),
       h("div", { class: "ribbon", "aria-hidden": "true" }, online.length ? online.map((p) => h("i", { class: "seg", style: `--w:${p.score};--c:${tierOf(p.score).color}`, title: `${p.name}: ${p.score}` })) : h("i", { class: "seg none", style: "--w:1" })),
-      h("div", { class: "legend" }, online.map((p) => h("span", { style: `--c:${tierOf(p.score).color}` }, h("i"), `${p.name} ${p.score}`))),
+      h("div", { class: "legend" }, online.slice(0, 6).map((p) => h("span", { style: `--c:${tierOf(p.score).color}` }, h("i"), `${p.name} ${p.score}`)),
+        online.length > 6 ? h("span", {}, `+${online.length - 6} more`) : null),
       h("div", { class: "totals" },
         h("div", { class: "tot" }, h("b", {}, num(cores)), h("span", {}, "CPU cores")),
         h("div", { class: "tot" }, h("b", {}, num(ram, 1), h("small", {}, "GB")), h("span", {}, "Memory")),
@@ -409,10 +489,21 @@ function render(data) {
     card(data.me),
     h("div", { class: "mycode" }, h("span", {}, "Your pairing code"), h("button", { onclick: () => copy(data.me.code), "aria-label": "Copy pairing code" }, data.me.code))));
 
-  region("#shelf", all, () => {
+  const nOn = online.length, nOff = all.length - nOn;
+  region("#shelf", { all, showOffline, showAll }, () => {
     const box = h("div", {});
-    box.append(h("div", { class: "shelf" }, all.map((p, i) =>
-      h("div", { class: "slot" }, h("div", { class: "rank" }, h("b", {}, `#${i + 1}`), p.code === data.me.code ? h("span", {}, "You") : null), card(p)))));
+    const list = showOffline ? all : all.filter((p) => p.online);
+    const shown = showAll ? list : list.slice(0, SHELF_LIMIT);
+    box.append(h("div", { class: "crewbar" },
+      h("span", {}, `${nOn} online` + (nOff ? ` \u00b7 ${nOff} offline` : "")),
+      nOff ? h("button", { class: "link", type: "button", onclick: () => { showOffline = !showOffline; render(lastData); } }, showOffline ? "Hide offline" : "Show offline") : null));
+    box.append(h("div", { class: "shelf" }, shown.map((p) => {
+      const mine = p.code === data.me.code;
+      return h("div", { class: "slot" },
+        h("div", { class: "rank" }, h("b", {}, `#${all.indexOf(p) + 1}`), mine ? h("span", {}, "You") : p.is_leader ? h("span", {}, "Leader") : null),
+        card(p), mine ? null : removeButton(p));
+    })));
+    if (list.length > shown.length) box.append(h("button", { class: "link more", type: "button", onclick: () => { showAll = true; render(lastData); } }, `Show all ${list.length}`));
     if (!data.friends.length) box.append(h("p", { class: "hint" }, `No friends yet. Share your pairing code ${data.me.code} or enter theirs below.`));
     return box;
   });
@@ -433,51 +524,114 @@ async function load() {
 
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function distribute(workers, n, onNote) {
-  const nchunks = workers.length * 4, step = Math.ceil(n / nchunks), queue = [];
-  for (let lo = 0; lo < n; lo += step) queue.push([lo, Math.min(lo + step, n)]);
+async function limited(items, fn, size = 8) {  // run requests a few at a time, so big crews don't flood the connection
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (next < items.length) { const k = next++; out[k] = await fn(items[k], k); }
+  }));
+  return out;
+}
+
+async function distribute(workers, n, onNote, opts = {}) {
+  const nchunks = Math.max(workers.length * 4, Math.ceil(n / 40000000)), step = Math.ceil(n / nchunks), queue = [], keys = [];
+  for (let lo = 0; lo < n; lo += step) { const c = [lo, Math.min(lo + step, n)]; queue.push(c); keys.push(c.join("-")); }
+  const keyOf = (c) => c.join("-");
   const alive = new Map(workers.map((w) => [w.code, w]));
-  const pending = new Map(), done = [], attempts = {};
+  const pending = new Map(), done = [], doneKeys = new Set(), dup = new Set(), attempts = {}, durations = [];
   const t0 = performance.now();
+
+  async function submit(code, chunk) {
+    const { data } = await call("/api/job/submit", { secret, to: code, task: "count_primes", args: { lo: chunk[0], hi: chunk[1] } });
+    if (!data.job) return false;
+    pending.set(data.job, { chunk, code, t: performance.now() });
+    return true;
+  }
   async function feed() {
     const busy = {};
     for (const j of pending.values()) busy[j.code] = (busy[j.code] || 0) + 1;
-    while (queue.length && alive.size) {
+    const plan = [];
+    while (queue.length && alive.size) {  // each machine holds at most 2 pieces, so faster machines take more
       let best = null, bl = Infinity;
       for (const [c, w] of alive) { const l = (busy[c] || 0) / Math.max(1, w.share_cores); if (l < bl) { bl = l; best = c; } }
       if ((busy[best] || 0) >= 2) break;
       const chunk = queue.shift();
-      const { data } = await call("/api/job/submit", { secret, to: best, task: "count_primes", args: { lo: chunk[0], hi: chunk[1] } });
-      if (data.job) { pending.set(data.job, { chunk, code: best }); busy[best] = (busy[best] || 0) + 1; }
-      else { alive.delete(best); queue.unshift(chunk); }
+      if (doneKeys.has(keyOf(chunk))) continue;
+      busy[best] = (busy[best] || 0) + 1;
+      plan.push([best, chunk]);
     }
-  }
-  await feed();
-  while (pending.size || queue.length) {
-    if (!alive.size && !pending.size) throw new Error("Every machine dropped out before the job finished.");
-    await sleep(500);
-    for (const [jid, j] of [...pending]) {
-      const { data } = await call("/api/job/status", { secret, job: jid });
-      if (data.status === "done") { done.push({ code: j.code, res: data.result }); pending.delete(jid); }
-      else if (data.status === "lost" || data.status === "error" || data.error) {
-        alive.delete(j.code); pending.delete(jid);
-        const k = j.chunk.join("-"); attempts[k] = (attempts[k] || 0) + 1;
-        if (attempts[k] > 3) throw new Error("A piece of the job failed too many times.");
-        queue.unshift(j.chunk);
-        if (onNote) onNote(`${(workers.find((w) => w.code === j.code) || {}).name || "A machine"} dropped out. Its work is being re-sent.`);
+    if (!queue.length && !plan.length) {  // end game: idle machines race the slowest pieces, first answer wins
+      const med = durations.length ? [...durations].sort((a, b) => a - b)[Math.floor(durations.length / 2)] : 0;
+      for (const [c] of alive) {
+        if ((busy[c] || 0) > 0) continue;
+        let pick = null;
+        for (const j of pending.values()) {
+          const k = keyOf(j.chunk);
+          if (doneKeys.has(k) || dup.has(k) || j.code === c) continue;
+          if ((performance.now() - j.t) / 1000 > Math.max(2, 2 * med) && (!pick || j.t < pick.t)) pick = j;
+        }
+        if (pick) { dup.add(keyOf(pick.chunk)); busy[c] = 1; plan.push([c, pick.chunk]); }
       }
     }
+    const ok = await limited(plan, ([c, chunk]) => submit(c, chunk));
+    ok.forEach((good, i) => {
+      if (good) return;
+      const [c, chunk] = plan[i];
+      alive.delete(c);
+      const k = keyOf(chunk);  // requeue only if nobody else is already running or finished this piece
+      if (!doneKeys.has(k) && ![...pending.values()].some((p) => keyOf(p.chunk) === k)) queue.unshift(chunk);
+    });
+  }
+
+  await feed();
+  while (doneKeys.size < keys.length) {
+    if (opts.signal && opts.signal.aborted) {
+      const ids = [...pending.keys()];
+      if (ids.length) { try { await call("/api/job/cancel", { secret, jobs: ids }); } catch (e) {} }
+      throw new Error("cancelled");
+    }
+    if (!alive.size && !pending.size) throw new Error("Every machine dropped out before the job finished.");
+    await sleep(500);
+    const ids = [...pending.keys()];
+    const stat = ids.length ? (await call("/api/job/statuses", { secret, jobs: ids })).data.jobs || {} : {};
+    for (const jid of ids) {
+      const j = pending.get(jid), r = stat[jid];
+      if (!r) { pending.delete(jid); continue; }
+      const k = keyOf(j.chunk);
+      if (r.status === "done") {
+        pending.delete(jid);
+        durations.push((performance.now() - j.t) / 1000);
+        if (!doneKeys.has(k)) { doneKeys.add(k); done.push({ code: j.code, res: r.result }); }
+      } else if (r.status === "lost" || r.status === "error") {
+        alive.delete(j.code); pending.delete(jid);
+        const copyRunning = [...pending.values()].some((p) => keyOf(p.chunk) === k);
+        if (!doneKeys.has(k) && !copyRunning) {
+          attempts[k] = (attempts[k] || 0) + 1;
+          if (attempts[k] > 3) throw new Error("A piece of the job failed too many times.");
+          queue.unshift(j.chunk);
+          if (onNote) onNote(`${(workers.find((w) => w.code === j.code) || {}).name || "A machine"} dropped out. Its work is being re-sent.`);
+        }
+      }
+    }
+    if (opts.onProgress) opts.onProgress(doneKeys.size / keys.length, (performance.now() - t0) / 1000);
     await feed();
+  }
+  const wall =(performance.now() - t0) / 1000;
+  for (let i = 0; i < 120 && pending.size; i++) {  // let machines still finishing a duplicate piece go idle before anything else is timed
+    await sleep(500);
+    const ids = [...pending.keys()];
+    const stat = (await call("/api/job/statuses", { secret, jobs: ids })).data.jobs || {};
+    for (const jid of ids) { const r = stat[jid]; if (!r || !["queued", "running"].includes(r.status)) pending.delete(jid); }
   }
   const per = {};
   for (const d of done) { const p = per[d.code] || (per[d.code] = { name: (workers.find((w) => w.code === d.code) || {}).name, pieces: 0 }); p.pieces++; }
-  return { wall: (performance.now() - t0) / 1000, total: done.reduce((a, d) => a + d.res.count, 0), per: Object.values(per) };
+  return { wall, total: done.reduce((a, d) => a + d.res.count, 0), per: Object.values(per).sort((a, b) => b.pieces - a.pieces) };
 }
 
 $("#run").addEventListener("click", async () => {
   if (!lastData) return;
   const btn = $("#run"), out = $("#runout"), N = 5000000;
-  const crew = [lastData.me, ...lastData.friends].filter((p) => p.online && p.sharing);
+  const crew = [lastData.me, ...lastData.friends].filter((p) => p.online && p.sharing && p.can_run !== false);
   const note = (t) => out.replaceChildren(h("p", { class: "hint" }, t));
   if (!crew.length) return note("No machine is sharing right now. Start an agent with --allow-jobs, or start the hub with python3 host.py.");
   btn.disabled = true;
@@ -494,7 +648,7 @@ $("#run").addEventListener("click", async () => {
       const x = solo.wall / withCrew.wall;
       kids.push(h("p", { class: "verdict" }, x >= 1.05 ? `${x.toFixed(1)}x faster with the crew.` : "No real speedup this time. The job was small, so setup time dominated."));
     }
-    kids.push(h("p", { class: "hint" }, `${withCrew.total.toLocaleString()} primes found below ${N.toLocaleString()}. ` + withCrew.per.map((p) => `${p.name}: ${p.pieces} pieces`).join(", ") + "."));
+    kids.push(h("p", { class: "hint" }, `${withCrew.total.toLocaleString()} primes found below ${N.toLocaleString()}. ` + withCrew.per.slice(0, 5).map((p) => `${p.name}: ${p.pieces} pieces`).join(", ") + (withCrew.per.length > 5 ? `, and ${withCrew.per.length - 5} more machines.` : "."))); 
     out.replaceChildren(...kids);
   } catch (e) { note(e.message || "The test failed. Try again."); }
   finally { btn.disabled = false; }
@@ -503,7 +657,7 @@ $("#run").addEventListener("click", async () => {
 $("#mkinvite").addEventListener("click", async () => {
   const out = $("#inviteout");
   try {
-    const { ok, data } = await call("/api/invite", { secret });
+    const { ok, data } = await call("/api/invite", { secret, size: +$("#invsize").value || 1 });
     if (!ok) return toast((data.error || "Couldn't create the link") + ".");
     const local = ["127.0.0.1", "localhost", "[::1]"].includes(location.hostname);
     const base = data.public_url || (local ? "" : location.origin);
@@ -514,7 +668,14 @@ $("#mkinvite").addEventListener("click", async () => {
     const link = base + "/join/" + data.token;
     out.replaceChildren(
       h("div", { class: "cmd" }, h("code", {}, link), h("button", { class: "btn ghost", type: "button", onclick: () => copy(link) }, "Copy")),
-      h("p", { class: "hint" }, "Works once and expires in 48 hours. Send it only to the friend you want to add."));
+      h("p", { class: "hint" }, `Works for up to ${data.size} ${data.size === 1 ? "person" : "people"} and expires in 48 hours. Anyone with the link can join your crew, so share it only with people you trust.`));
+  } catch (e) { toast("Couldn't reach the hub. Try again."); }
+});
+$("#revokeinv").addEventListener("click", async () => {
+  try {
+    const { data } = await call("/api/invite/revoke_all", { secret });
+    $("#inviteout").replaceChildren();
+    toast(data.revoked ? `Cancelled ${data.revoked} open invite ${data.revoked === 1 ? "link" : "links"}.` : "No open invite links.");
   } catch (e) { toast("Couldn't reach the hub. Try again."); }
 });
 
@@ -537,6 +698,321 @@ $("#cf").addEventListener("submit", async (e) => {
     load();
   } catch (err) { toast("Couldn't reach the hub. Try again."); }
 });
+
+/* ------------ console ------------ */
+const Con = (() => {
+  const LS = "manifold_workflows", MAX_N = 200000000;
+  const panel = $("#con"), log = $("#conlog"), inp = $("#conin"), btn = $("#conbtn");
+  let mem = {}, hist = [], hpos = 0, busy = null, greeted = false;
+
+  const wf = {
+    all() { try { return JSON.parse(localStorage.getItem(LS) || "null") || mem; } catch (e) { return mem; } },
+    save(o) { mem = o; try { localStorage.setItem(LS, JSON.stringify(o)); } catch (e) {} },
+  };
+
+  function line(text, cls) {
+    const d = h("div", { class: "ln" + (cls ? " " + cls : "") }, text);
+    log.append(d);
+    while (log.childElementCount > 400) log.firstElementChild.remove();
+    log.scrollTop = log.scrollHeight;
+    return d;
+  }
+  const err = (t) => { line(t, "c-err"); return false; };
+  const pad = (s, n) => { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s.padEnd(n); };
+  const crewList = () => (lastData ? [lastData.me, ...lastData.friends] : []);
+
+  function splitSeq(str) {  // split on ; outside quotes
+    const out = []; let cur = "", q = null;
+    for (const ch of str) {
+      if (q) { cur += ch; if (ch === q) q = null; }
+      else if (ch === '"' || ch === "'") { q = ch; cur += ch; }
+      else if (ch === ";") { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out.map((s) => s.trim()).filter(Boolean);
+  }
+  function tokenize(str) {
+    const out = []; let cur = "", q = null, has = false;
+    for (const ch of str) {
+      if (q) { if (ch === q) q = null; else cur += ch; }
+      else if (ch === '"' || ch === "'") { q = ch; has = true; }
+      else if (/\s/.test(ch)) { if (cur || has) out.push(cur); cur = ""; has = false; }
+      else cur += ch;
+    }
+    if (cur || has) out.push(cur);
+    return out;
+  }
+  function find(q) {
+    const s = String(q || "").toLowerCase(), list = crewList();
+    if (!s) return { err: "Which machine? Give a name or pairing code." };
+    if (s === "me") return { m: lastData.me };
+    let hit = list.filter((p) => p.code.toLowerCase() === s);
+    if (!hit.length) hit = list.filter((p) => p.name.toLowerCase() === s);
+    if (!hit.length) hit = list.filter((p) => p.name.toLowerCase().startsWith(s));
+    if (hit.length === 1) return { m: hit[0] };
+    return { err: hit.length ? `"${q}" matches ${hit.length} machines (${hit.map((p) => p.name).join(", ")}). Use the pairing code.` : `No machine called "${q}". Try: status --all` };
+  }
+  function parseCount(s) {
+    const m = /^(\d+(?:\.\d+)?)([kmb])?$/i.exec(s || "");
+    const v = m ? parseFloat(m[1]) * ({ k: 1e3, m: 1e6, b: 1e9 }[(m[2] || "").toLowerCase()] || 1) : Number(s);
+    return Number.isFinite(v) && v >= 1000 ? Math.floor(v) : NaN;
+  }
+  const bar = (f) => { const n = Math.round(f * 20); return "[" + "█".repeat(n) + "░".repeat(20 - n) + "] " + String(Math.round(f * 100)).padStart(3) + "%"; };
+
+  async function inviteLink(size) {
+    const { ok, data } = await call("/api/invite", { secret, size });
+    if (!ok) throw new Error(data.error || "Couldn't create the link");
+    const local = ["127.0.0.1", "localhost", "[::1]"].includes(location.hostname);
+    const base = data.public_url || (local ? "" : location.origin);
+    return { base, data };
+  }
+
+  const COMMANDS = {
+    help() {
+      line([
+        "Commands",
+        "  status [--all]                   the crew and its combined power",
+        "  run primes <n> [--compare]       split a job across the crew (n like 500k, 5m, 1e6; max 200m)",
+        "       [--on <machine>]            run on one machine only (name, code, or me)",
+        "  ping                             time round trips to the hub",
+        "  invite [people]                  make a join link for 1 to 25 people",
+        "  remove <machine> [--yes]         drop a machine from your crew",
+        "  whoami | history | clear",
+        '  workflow list | save <name> "<commands>" | run <name> | rm <name>',
+        "",
+        "Chain commands with ;   Example:",
+        '  workflow save nightly "status; run primes 20m --compare"',
+        "Keys: ` toggle   Up/Down history   Tab complete   Ctrl+C cancel   Ctrl+L clear",
+      ].join("\n"), "tbl");
+      return true;
+    },
+    whoami() {
+      const m = lastData.me, t = tierOf(m.score);
+      line(`${m.name}  ${m.code}  ${t.name}, power ${m.score}`);
+      return true;
+    },
+    clear() { log.replaceChildren(); return true; },
+    history() {
+      if (!hist.length) { line("Nothing yet.", "c-dim"); return true; }
+      hist.slice(-20).forEach((c, i, a) => line(`${String(hist.length - a.length + i + 1).padStart(3)}  ${c}`, "c-dim"));
+      return true;
+    },
+    status(args) {
+      const all = args.includes("--all"), bad = args.find((a) => a !== "--all");
+      if (bad) return err(`Unknown option "${bad}". Usage: status [--all]`);
+      const list = [lastData.me, ...lastData.friends].sort((a, b) => (b.online - a.online) || (b.score - a.score));
+      const on = list.filter((p) => p.online), shown = (all ? list : on).slice(0, 60);
+      const rows = [pad("MACHINE", 20) + pad("TIER", 11) + pad("POWER", 7) + pad("CORES", 7) + pad("RAM", 9) + pad("GPU", 18) + "STATE"];
+      for (const p of shown) {
+        const v = vramOf(p), gpu = p.specs.gpus.length ? `${shortGpu(p.specs.gpus[0].name)} ${fmt(v)}G` : "none";
+        rows.push(pad(p.name, 20) + pad(tierOf(p.score).name, 11) + pad(p.score, 7) + pad(p.specs.cores, 7) + pad(fmt(p.specs.ram_gb) + " GB", 9) + pad(gpu, 18) + (!p.online ? "offline" : p.sharing ? `sharing ${p.share_cores}c` : "not sharing"));
+      }
+      line(rows.join("\n"), "tbl");
+      const more = (all ? list : on).length - shown.length;
+      if (more > 0) line(`...and ${more} more.`, "c-dim");
+      const sum = (f) => on.reduce((a, p) => a + f(p), 0);
+      line(`${on.length} online · ${sum((p) => p.specs.cores)} cores · ${fmt(sum((p) => p.specs.ram_gb))} GB RAM · ${fmt(sum(vramOf))} GB VRAM · power ${sum((p) => p.score)}`, "c-acc");
+      if (!all && list.length > on.length) line(`${list.length - on.length} offline hidden. Use status --all.`, "c-dim");
+      return true;
+    },
+    async ping() {
+      const t = [];
+      for (let i = 0; i < 3; i++) {
+        const t0 = performance.now();
+        try { await call("/api/crew", { secret }); } catch (e) { return err("The hub didn't answer."); }
+        t.push(Math.round(performance.now() - t0));
+      }
+      line(`hub  ${t.join(" / ")} ms   best ${Math.min(...t)} ms`);
+      return true;
+    },
+    async invite(args) {
+      const size = args[0] == null ? 1 : Number(args[0]);
+      if (!Number.isInteger(size) || size < 1 || size > 25) return err("Usage: invite [people], a whole number from 1 to 25.");
+      try {
+        const { base, data } = await inviteLink(size);
+        if (!base) return err("Friends can't reach this hub yet. Start it with host.py or hub.py --public, then try again.");
+        const link = base + "/join/" + data.token;
+        line(link, "c-acc");
+        line(`Works for up to ${data.size} ${data.size === 1 ? "person" : "people"}, expires in 48 hours.`, "c-dim");
+        try { await navigator.clipboard.writeText(link); line("Copied to your clipboard.", "c-dim"); } catch (e) {}
+        return true;
+      } catch (e) { return err((e.message || "Couldn't reach the hub") + "."); }
+    },
+    async remove(args) {
+      const yes = args.includes("--yes"), q = args.filter((a) => a !== "--yes")[0];
+      const r = find(q);
+      if (r.err) return err(r.err);
+      if (r.m.code === lastData.me.code) return err("That's you. Pick another machine.");
+      if (!yes) { line(`This drops ${r.m.name} (${r.m.code}) from your crew. Run it again with --yes to confirm:  remove ${r.m.code} --yes`, "c-acc"); return false; }
+      try {
+        const { ok, data } = await call("/api/disconnect", { secret, code: r.m.code });
+        if (!ok) return err((data.error || "Couldn't remove") + ".");
+        line(`${r.m.name} removed.`); load(); return true;
+      } catch (e) { return err("The hub didn't answer."); }
+    },
+    async run(args) {
+      if (args[0] !== "primes") return err("Usage: run primes <n> [--compare] [--on <machine>]");
+      let nArg = null, compare = false, on = null;
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i];
+        if (a === "--compare") compare = true;
+        else if (a === "--on") { on = args[++i]; if (!on) return err("--on needs a machine name."); }
+        else if (nArg == null) nArg = a;
+        else return err(`Unexpected "${a}". Usage: run primes <n> [--compare] [--on <machine>]`);
+      }
+      const n = nArg == null ? 5000000 : parseCount(nArg);
+      if (!Number.isFinite(n)) return err(`"${nArg}" isn't a size. Try 500k, 5m or 1e6 (at least 1000).`);
+      if (n > MAX_N) return err(`That's too big for one run. The limit is ${MAX_N.toLocaleString()}.`);
+      let crew = crewList().filter((p) => p.online && p.sharing && p.can_run !== false);
+      if (on) {
+        const r = find(on);
+        if (r.err) return err(r.err);
+        crew = crew.filter((p) => p.code === r.m.code);
+        if (!crew.length) return err(`${r.m.name} isn't online and sharing, or you can't send it work.`);
+      }
+      if (!crew.length) return err("No machine is sharing right now. Start an agent with --allow-jobs, or start the hub with python3 host.py.");
+      const opts = { signal: busy.signal };
+      const go = async (workers, label) => {
+        const pl = line("", "c-acc");
+        pl.textContent = `${label} ${bar(0)}`;
+        const res = await distribute(workers, n, (t) => line(t, "c-dim"), { ...opts, onProgress: (f, s) => { pl.textContent = `${label} ${bar(f)}  ${s.toFixed(1)}s`; } });
+        pl.textContent = `${label} ${bar(1)}  ${res.wall.toFixed(1)}s`;
+        return res;
+      };
+      try {
+        line(`Counting primes below ${n.toLocaleString()} on ${crew.length} ${crew.length === 1 ? "machine" : "machines"}.`, "c-dim");
+        const res = await go(crew, "crew");
+        line(`${res.total.toLocaleString()} primes found in ${res.wall.toFixed(2)}s`);
+        line(res.per.slice(0, 8).map((p) => `  ${pad(p.name || "?", 20)}${p.pieces} ${p.pieces === 1 ? "piece" : "pieces"}`).join("\n") + (res.per.length > 8 ? `\n  ...and ${res.per.length - 8} more machines` : ""), "c-dim tbl");
+        const me = crew.find((p) => p.code === lastData.me.code);
+        if (compare && !on && crew.length > 1 && me) {
+          line("Timing this machine alone...", "c-dim");
+          const solo = await go([me], "solo");
+          const x = solo.wall / res.wall;
+          line(x >= 1.05 ? `${x.toFixed(1)}x faster with the crew.` : "No real speedup. The job was small, so setup time dominated.", "c-acc");
+        } else if (compare) line("Nothing to compare: needs this machine and at least one more sharing.", "c-dim");
+        return true;
+      } catch (e) {
+        if (e.message === "cancelled") { line("Cancelled.", "c-dim"); return false; }
+        return err((e.message || "The job failed") + "");
+      }
+    },
+    workflow(args, ctx) {
+      const sub = args[0], all = wf.all();
+      if (sub === "list" || sub == null) {
+        const names = Object.keys(all);
+        if (!names.length) { line('No workflows yet. Save one:  workflow save nightly "status; run primes 5m"', "c-dim"); return true; }
+        line(names.map((k) => `${pad(k, 16)}${all[k]}`).join("\n"), "tbl");
+        return true;
+      }
+      const name = args[1];
+      if (sub === "save") {
+        const cmds = args.slice(2).join(" ").trim();
+        if (!/^[\w-]{1,24}$/.test(name || "")) return err("Name it with letters, numbers, - or _ (up to 24 characters).");
+        if (!cmds) return err('Usage: workflow save <name> "<commands>"');
+        if (cmds.length > 500) return err("That's too long. Keep a workflow under 500 characters.");
+        if (!(name in all) && Object.keys(all).length >= 30) return err("You have 30 workflows. Remove one first.");
+        for (const part of splitSeq(cmds)) {
+          const c = (tokenize(part)[0] || "").toLowerCase();
+          if (!COMMANDS[c]) return err(`"${c}" isn't a command, so this can't be saved.`);
+        }
+        all[name] = cmds; wf.save(all);
+        line(`Saved "${name}". Run it with:  workflow run ${name}`);
+        return true;
+      }
+      if (sub === "rm") {
+        if (!(name in all)) return err(`No workflow called "${name}".`);
+        delete all[name]; wf.save(all); line(`Removed "${name}".`); return true;
+      }
+      if (sub === "run") {
+        if (!(name in all)) return err(`No workflow called "${name}". Try: workflow list`);
+        if (ctx.depth >= 3) return err("Workflows are nested too deeply.");
+        return runLine(all[name], ctx.depth + 1);
+      }
+      return err("Usage: workflow list | save <name> \"<commands>\" | run <name> | rm <name>");
+    },
+  };
+
+  async function runLine(text, depth = 0) {
+    for (const part of splitSeq(text)) {
+      const toks = tokenize(part);
+      if (!toks.length) continue;
+      if (depth > 0) line("› " + part, "c-in");
+      const fn = Object.prototype.hasOwnProperty.call(COMMANDS, toks[0].toLowerCase()) ? COMMANDS[toks[0].toLowerCase()] : null;
+      if (!fn) return err(`Unknown command "${toks[0]}". Type help.`);
+      let ok;
+      try { ok = await fn(toks.slice(1), { depth }); } catch (e) { ok = err(e.message || "That failed."); }
+      if (ok === false) return false;
+    }
+    return true;
+  }
+
+  async function submit(text) {
+    text = text.trim();
+    if (!text) return;
+    line("crew › " + text, "c-in");
+    if (hist[hist.length - 1] !== text) hist.push(text);
+    hist = hist.slice(-100); hpos = hist.length;
+    if (busy) return err("A job is running. Press Ctrl+C to cancel it first.");
+    if (!lastData) return err("Not connected to the hub yet.");
+    busy = new AbortController();
+    $("#conrow").classList.add("busy");
+    try { await runLine(text); } finally { busy = null; $("#conrow").classList.remove("busy"); inp.focus(); }
+  }
+
+  function complete() {
+    const v = inp.value, toks = v.split(/\s+/), last = toks[toks.length - 1].toLowerCase();
+    let pool;
+    if (toks.length === 1) pool = Object.keys(COMMANDS);
+    else if (toks[0] === "workflow" && toks.length === 2) pool = ["list", "save", "run", "rm"];
+    else if (toks[0] === "workflow") pool = Object.keys(wf.all());
+    else if (toks[0] === "run" && toks.length === 2) pool = ["primes"];
+    else if (toks[0] === "run" && last.startsWith("-")) pool = ["--compare", "--on"];
+    else pool = crewList().map((p) => (/\s/.test(p.name) ? `"${p.name}"` : p.name));
+    const bare = (c) => c.replace(/^["']/, "").toLowerCase(), want = last.replace(/^["']/, "");
+    const hits = pool.filter((c) => bare(c).startsWith(want) && c.toLowerCase() !== last);
+    if (hits.length === 1) { toks[toks.length - 1] = hits[0]; inp.value = toks.join(" ") + " "; }
+    else if (hits.length > 1) line(hits.join("   "), "c-dim");
+  }
+
+  function open() {
+    if (!lastData) return;
+    panel.hidden = false; document.body.classList.add("conopen"); btn.setAttribute("aria-expanded", "true");
+    if (!greeted) {
+      greeted = true;
+      const on = crewList().filter((p) => p.online).length;
+      line(`Manifold console. ${on} ${on === 1 ? "machine" : "machines"} online. Type help.`, "c-dim");
+    }
+    log.scrollTop = log.scrollHeight;
+    inp.focus();
+  }
+  function close() { panel.hidden = true; document.body.classList.remove("conopen"); btn.setAttribute("aria-expanded", "false"); btn.focus(); }
+  const toggle = () => (panel.hidden ? open() : close());
+
+  btn.addEventListener("click", toggle);
+  $("#conx").addEventListener("click", close);
+  $("#conrow").addEventListener("submit", (e) => { e.preventDefault(); const v = inp.value; inp.value = ""; submit(v); });
+  log.addEventListener("click", () => { if (!String(getSelection())) inp.focus(); });
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "`") { e.preventDefault(); close(); }
+    else if (e.key === "Escape") close();
+    else if (e.key === "ArrowUp") { e.preventDefault(); if (hpos > 0) inp.value = hist[--hpos]; }
+    else if (e.key === "ArrowDown") { e.preventDefault(); hpos = Math.min(hist.length, hpos + 1); inp.value = hist[hpos] || ""; }
+    else if (e.key === "Tab") { e.preventDefault(); complete(); }
+    else if (e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); COMMANDS.clear(); }
+    else if (e.ctrlKey && e.key.toLowerCase() === "c" && inp.selectionStart === inp.selectionEnd) {
+      e.preventDefault();
+      if (busy) busy.abort(); else if (inp.value) { line("crew › " + inp.value + "^C", "c-in"); inp.value = ""; }
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "`" || e.ctrlKey || e.metaKey || e.altKey || e.target === inp) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+    e.preventDefault(); toggle();
+  });
+  return { open, close, submit };
+})();
 
 load();
 setInterval(() => { if (!document.hidden) load(); }, 5000);
